@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações & Backup — Voal Consult</title>
+  <meta name="description" content="Exportações, Backups e Configurações do Sistema — Voal Consult">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --bg-app: #F8FAFC;
+      --bg-sidebar: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --bg-card-subtle: #F1F5F9;
+      --bg-input: #FFFFFF;
+      --border-color: #E2E8F0;
+      --border-card: #E2E8F0;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --text-dim: #94A3B8;
+      --qa-blue-bg: #EFF6FF; --qa-blue-border: #BFDBFE; --qa-blue-text: #1D4ED8;
+      --qa-green-bg: #F0FDF4; --qa-green-border: #BBF7D0; --qa-green-text: #15803D;
+      --qa-purple-bg: #FAF5FF; --qa-purple-border: #E9D5FF; --qa-purple-text: #7E22CE;
+      --qa-orange-bg: #FFFBEB; --qa-orange-border: #FDE68A; --qa-orange-text: #B45309;
+      --primary-blue: #2563EB; --primary-blue-hover: #1D4ED8;
+      --fab-bg: #0F172A; --fab-text: #FFFFFF;
+      --sidebar-width: 250px;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-full: 9999px;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+      --transition: all 0.15s ease-in-out;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-sans); }
+    body { background-color: var(--bg-app); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+    #app-container { display: flex; width: 100%; min-height: 100vh; }
+    aside.sidebar { width: var(--sidebar-width); background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; }
+    .brand-box { padding: 18px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-color); }
+    .brand-icon-box { width: 36px; height: 36px; background: #0F172A; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: #FFFFFF; flex-shrink: 0; }
+    .brand-text h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.2; }
+    .brand-text span { font-size: 0.72rem; color: var(--text-muted); }
+    .nav-label { font-size: 0.72rem; font-weight: 600; color: var(--text-dim); padding: 16px 20px 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .nav-menu { list-style: none; padding: 4px 12px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; color: var(--text-muted); text-decoration: none; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 500; transition: var(--transition); cursor: pointer; }
+    .nav-item a:hover { background-color: var(--bg-card-subtle); color: var(--text-main); }
+    .nav-item.active a { background-color: var(--bg-card-subtle); color: var(--text-main); font-weight: 600; }
+    .nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted); }
+    .nav-item.active .nav-icon { color: var(--text-main); }
+    .sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
+    .user-avatar-tag { width: 32px; height: 32px; border-radius: 50%; background: #0F172A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; }
+    main.main-content { margin-left: var(--sidebar-width); flex: 1; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - var(--sidebar-width)); }
+    header.top-header { height: 56px; background: #FFFFFF; border-bottom: 1px solid var(--border-color); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .sidebar-collapse-btn { background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 6px; color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .page-container { padding: 28px 32px 60px; flex: 1; max-width: 1440px; width: 100%; margin: 0 auto; }
+    .dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .dashboard-title h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.4px; }
+    .dashboard-title p { font-size: 0.88rem; color: var(--text-muted); margin-top: 3px; }
+    .quick-actions-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 1024px) { .quick-actions-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .quick-actions-grid { grid-template-columns: 1fr; } }
+    .qa-card { border-radius: var(--radius-lg); padding: 18px 20px; cursor: pointer; transition: var(--transition); display: flex; flex-direction: column; gap: 10px; text-align: left; border: 1px solid transparent; text-decoration: none; }
+    .qa-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .qa-card.qa-blue { background-color: var(--qa-blue-bg); border-color: var(--qa-blue-border); }
+    .qa-card.qa-green { background-color: var(--qa-green-bg); border-color: var(--qa-green-border); }
+    .qa-card.qa-purple { background-color: var(--qa-purple-bg); border-color: var(--qa-purple-border); }
+    .qa-card.qa-orange { background-color: var(--qa-orange-bg); border-color: var(--qa-orange-border); }
+    .qa-icon-svg { width: 24px; height: 24px; display: flex; align-items: center; }
+    .qa-blue .qa-icon-svg { color: var(--qa-blue-text); }
+    .qa-green .qa-icon-svg { color: var(--qa-green-text); }
+    .qa-purple .qa-icon-svg { color: var(--qa-purple-text); }
+    .qa-orange .qa-icon-svg { color: var(--qa-orange-text); }
+    .qa-title { font-size: 0.95rem; font-weight: 700; line-height: 1.2; }
+    .qa-blue .qa-title { color: var(--qa-blue-text); }
+    .qa-green .qa-title { color: var(--qa-green-text); }
+    .qa-purple .qa-title { color: var(--qa-purple-text); }
+    .qa-orange .qa-title { color: var(--qa-orange-text); }
+    .qa-subtitle { font-size: 0.78rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <div id="app-container">
+    
+    <!-- BARRA LATERAL -->
+    <aside class="sidebar">
+      <div class="brand-box">
+        <div class="brand-icon-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
+        </div>
+        <div class="brand-text">
+          <h2>Voal Consult</h2>
+          <span>ERP & Gestão Contábil</span>
+        </div>
+      </div>
+
+      <div class="nav-label">Navegação</div>
+      <ul class="nav-menu">
+        <li class="nav-item"><a href="index.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span><span>Painel Geral</span></a></li>
+        <li class="nav-item"><a href="clientes.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Carteira de Clientes</span></a></li>
+        <li class="nav-item"><a href="calendario.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></span><span>Calendário Fiscal</span></a></li>
+        <li class="nav-item"><a href="conformidade.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span><span>Conformidade Fiscal</span></a></li>
+        <li class="nav-item"><a href="cnds.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg></span><span>Matriz de CNDs</span></a></li>
+        <li class="nav-item"><a href="honorarios.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg></span><span>Honorários (MRR)</span></a></li>
+        <li class="nav-item"><a href="relatorios.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span><span>Relatórios</span></a></li>
+        <li class="nav-item active"><a href="configuracoes.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span><span>Configurações & Backup</span></a></li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="user-avatar-tag">VC</div>
+        <div>
+          <div style="font-size:0.85rem; font-weight:700; color:var(--text-main);">Voal Consult</div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Equipe Interna</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="main-content">
+      <header class="top-header no-print">
+        <div class="header-left">
+          <button class="sidebar-collapse-btn" title="Menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+          </button>
+          <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+            Voal Consult &bull; Configurações & Backup
+          </div>
+        </div>
+      </header>
+
+      <div class="page-container">
+        <div class="dashboard-header">
+          <div class="dashboard-title">
+            <h1>Configurações, Exportações & Cópias de Segurança</h1>
+            <p>Exportação de dados para Excel e rotinas seguras de backup local.</p>
+          </div>
+        </div>
+
+        <div class="quick-actions-grid">
+          <div class="qa-card qa-blue" id="btn-export-csv">
+            <div class="qa-icon-svg">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            </div>
+            <div class="qa-title">Exportar Planilha Excel (.csv)</div>
+            <div class="qa-subtitle">Baixar relação completa de empresas cadastradas</div>
+          </div>
+
+          <div class="qa-card qa-green" id="btn-export-json">
+            <div class="qa-icon-svg">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            </div>
+            <div class="qa-title">Gerar Backup do Sistema (.json)</div>
+            <div class="qa-subtitle">Salvar cópia integral do banco de dados local</div>
+          </div>
+
+          <div class="qa-card qa-purple" onclick="document.getElementById('input-import-json').click()">
+            <div class="qa-icon-svg">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            </div>
+            <div class="qa-title">Restaurar Cópia de Segurança</div>
+            <div class="qa-subtitle">Importar arquivo de dados .json previamente exportado</div>
+            <input type="file" id="input-import-json" accept=".json" style="display: none;">
+          </div>
+
+          <div class="qa-card qa-orange" id="btn-reset-sample">
+            <div class="qa-icon-svg">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </div>
+            <div class="qa-title">Recarregar Dados de Teste</div>
+            <div class="qa-subtitle">Restaurar empresas demonstrativas da Voal Consult</div>
+          </div>
+        </div>
+
+        <!-- Certificados Digitais -->
+        <div style="margin-top:32px;margin-bottom:16px;">
+          <div style="font-size:1rem;font-weight:700;color:var(--text-main);margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            Certificados Digitais e-CNPJ (A3)
+          </div>
+          <div class="table-container">
+            <table class="figma-table">
+              <thead>
+                <tr>
+                  <th>Empresa</th><th>CNPJ</th><th>Tipo</th><th>Emissora</th><th>Validade</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><a class="client-anchor" href="dossie.html?id=cli_001">Sabor Paulista Grill</a></td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">12.345.678/0001-90</td>
+                  <td><span class="chip chip-info">e-CNPJ A3</span></td>
+                  <td style="font-size:0.8rem;color:var(--text-muted);">Certisign</td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">15/03/2027</td>
+                  <td><span class="chip chip-success">Válido</span></td>
+                </tr>
+                <tr>
+                  <td><a class="client-anchor" href="dossie.html?id=cli_002">TechVanguard Labs</a></td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">23.456.789/0001-01</td>
+                  <td><span class="chip chip-info">e-CNPJ A3</span></td>
+                  <td style="font-size:0.8rem;color:var(--text-muted);">Serpro</td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">22/07/2027</td>
+                  <td><span class="chip chip-success">Válido</span></td>
+                </tr>
+                <tr>
+                  <td><a class="client-anchor" href="dossie.html?id=cli_003">Alpha Metalúrgica</a></td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">34.567.890/0001-12</td>
+                  <td><span class="chip chip-info">e-CNPJ A3</span></td>
+                  <td style="font-size:0.8rem;color:var(--text-muted);">Valid</td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">05/11/2026</td>
+                  <td><span class="chip chip-warning">Vence em 83d</span></td>
+                </tr>
+                <tr>
+                  <td><a class="client-anchor" href="dossie.html?id=cli_004">Clínica Hiroshi</a></td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">45.678.901/0001-23</td>
+                  <td><span class="chip chip-info">e-CNPJ A3</span></td>
+                  <td style="font-size:0.8rem;color:var(--text-muted);">Certisign</td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">14/08/2027</td>
+                  <td><span class="chip chip-success">Válido (renovado hoje)</span></td>
+                </tr>
+                <tr>
+                  <td><a class="client-anchor" href="dossie.html?id=cli_005">M.V. Instalações</a></td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">56.789.012/0001-34</td>
+                  <td><span class="chip chip-muted">e-CPF A1</span></td>
+                  <td style="font-size:0.8rem;color:var(--text-muted);">AC-IMAP</td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">30/06/2026</td>
+                  <td><span class="chip chip-danger">Vencido</span></td>
+                </tr>
+                <tr>
+                  <td><a class="client-anchor" href="dossie.html?id=cli_006">Studio Zen</a></td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">67.890.123/0001-45</td>
+                  <td><span class="chip chip-info">e-CNPJ A3</span></td>
+                  <td style="font-size:0.8rem;color:var(--text-muted);">Safeweb</td>
+                  <td style="font-family:var(--font-mono);font-size:0.8rem;">10/02/2027</td>
+                  <td><span class="chip chip-success">Válido</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Dados do Escritório -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:24px;">
+          <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-sm);">
+            <div style="font-size:0.9rem;font-weight:700;color:var(--text-main);margin-bottom:14px;">📋 Dados do Escritório</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Razão Social</span><span style="font-size:0.82rem;font-weight:600;">Voal Serviços Contábeis Ltda</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">CNPJ</span><span style="font-size:0.82rem;font-weight:600;font-family:var(--font-mono);">98.765.432/0001-10</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">CRC SP</span><span style="font-size:0.82rem;font-weight:600;">CRC-SP 109.876/O-5</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Regime do Escritório</span><span class="chip chip-info" style="font-size:0.72rem;">Lucro Presumido</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Sócia Responsável</span><span style="font-size:0.82rem;font-weight:600;">Dra. Fernanda Voal</span></div>
+              <div style="display:flex;justify-content:space-between;"><span style="font-size:0.82rem;color:var(--text-muted);">Contato</span><span style="font-size:0.82rem;font-weight:600;">voal@voalconsult.com.br</span></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-sm);">
+            <div style="font-size:0.9rem;font-weight:700;color:var(--text-main);margin-bottom:14px;">⚙️ Versão do Sistema</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Versão ERP</span><span class="chip chip-success">v3.0.1</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Última Atualização</span><span style="font-size:0.82rem;font-weight:600;font-family:var(--font-mono);">14/08/2026</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Clientes Cadastrados</span><span style="font-size:0.82rem;font-weight:700;">6</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Obrigações no Catálogo</span><span style="font-size:0.82rem;font-weight:700;">18</span></div>
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:8px;"><span style="font-size:0.82rem;color:var(--text-muted);">Backup Automático</span><span class="chip chip-success">Ativo — Diário</span></div>
+              <div style="display:flex;justify-content:space-between;"><span style="font-size:0.82rem;color:var(--text-muted);">Tecnologia</span><span style="font-size:0.82rem;font-weight:600;">100% Offline — Vanilla JS</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.page-container -->
+    </main>
+  </div><!-- /#app-container -->
+
+  <div id="toast-deck"></div>
+
+  <script src="js/validators.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/obligations.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

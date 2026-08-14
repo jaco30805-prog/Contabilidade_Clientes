@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendário Fiscal &mdash; Voal Consult</title>
+  <meta name="description" content="Calendário Interativo de Obrigações Fiscais e Prazos — Voal Consult">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --bg-app: #F8FAFC; --bg-sidebar: #FFFFFF; --bg-card: #FFFFFF;
+      --bg-card-subtle: #F1F5F9; --bg-input: #FFFFFF;
+      --border-color: #E2E8F0; --border-card: #E2E8F0;
+      --text-main: #0F172A; --text-muted: #64748B; --text-dim: #94A3B8;
+      --primary-blue: #2563EB; --primary-blue-hover: #1D4ED8;
+      --fab-bg: #0F172A; --fab-text: #FFFFFF;
+      --sidebar-width: 250px;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-full: 9999px;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05); --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+      --transition: all 0.15s ease-in-out;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-sans); }
+    body { background-color: var(--bg-app); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+    #app-container { display: flex; width: 100%; min-height: 100vh; }
+    aside.sidebar { width: var(--sidebar-width); background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; }
+    .brand-box { padding: 18px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-color); }
+    .brand-icon-box { width: 36px; height: 36px; background: #0F172A; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: #FFFFFF; flex-shrink: 0; }
+    .brand-text h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.2; }
+    .brand-text span { font-size: 0.72rem; color: var(--text-muted); }
+    .nav-label { font-size: 0.72rem; font-weight: 600; color: var(--text-dim); padding: 16px 20px 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .nav-menu { list-style: none; padding: 4px 12px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; color: var(--text-muted); text-decoration: none; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 500; transition: var(--transition); }
+    .nav-item a:hover { background-color: var(--bg-card-subtle); color: var(--text-main); }
+    .nav-item.active a { background-color: var(--bg-card-subtle); color: var(--text-main); font-weight: 600; }
+    .nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted); }
+    .nav-item.active .nav-icon { color: var(--text-main); }
+    .sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
+    .user-avatar-tag { width: 32px; height: 32px; border-radius: 50%; background: #0F172A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; }
+    main.main-content { margin-left: var(--sidebar-width); flex: 1; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - var(--sidebar-width)); }
+    header.top-header { height: 56px; background: #FFFFFF; border-bottom: 1px solid var(--border-color); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .sidebar-collapse-btn { background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 6px; color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .page-container { padding: 28px 32px 60px; flex: 1; max-width: 1440px; width: 100%; margin: 0 auto; }
+    .dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .dashboard-title h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.4px; }
+    .dashboard-title p { font-size: 0.88rem; color: var(--text-muted); margin-top: 3px; }
+    .btn-figma-primary { background-color: var(--primary-blue); color: #FFFFFF; border: 1px solid transparent; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; border-radius: var(--radius-md); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: var(--transition); text-decoration: none; }
+    .btn-figma-primary:hover { background-color: var(--primary-blue-hover); }
+    .btn-figma-secondary { background-color: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 16px; font-size: 0.85rem; font-weight: 600; border-radius: var(--radius-md); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: var(--transition); text-decoration: none; }
+    .btn-figma-secondary:hover { background-color: var(--bg-card-subtle); }
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-sm); font-size: 0.72rem; font-weight: 600; }
+    .chip-success { background: #DCFCE7; color: #15803D; }
+    .chip-warning { background: #FEF3C7; color: #B45309; }
+    .chip-danger { background: #FEE2E2; color: #B91C1C; }
+    .chip-info { background: #DBEAFE; color: #1D4ED8; }
+    .chip-muted { background: var(--bg-card-subtle); color: var(--text-muted); }
+    /* CALENDARIO */
+    .cal-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+    @media (max-width: 1100px) { .cal-layout { grid-template-columns: 1fr; } }
+    .cal-nav-bar { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm); }
+    .cal-nav-title { font-size: 1.15rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; }
+    .cal-nav-btns { display: flex; gap: 8px; }
+    .cal-nav-btn { background: var(--bg-card-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 6px 12px; color: var(--text-main); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 6px; }
+    .cal-nav-btn:hover { background-color: var(--border-color); }
+    .cal-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    .cal-legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 500; color: var(--text-muted); }
+    .cal-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-pessoal { background: #3B82F6; } .dot-fiscal { background: #8B5CF6; } .dot-contabil { background: #EC4899; } .dot-anual { background: #F59E0B; }
+    .cal-grid-wrap { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); background: var(--bg-card-subtle); border-bottom: 1px solid var(--border-color); }
+    .cal-weekday { padding: 10px 8px; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; text-align: center; }
+    .cal-weekday:first-child { color: #EF4444; }
+    .cal-days-grid { display: grid; grid-template-columns: repeat(7,1fr); }
+    .cal-day-cell { border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); min-height: 110px; padding: 8px; transition: var(--transition); position: relative; }
+    .cal-day-cell:nth-child(7n) { border-right: none; }
+    .cal-day-cell:hover { background: var(--bg-card-subtle); }
+    .cal-day-cell.other-month { opacity: 0.35; }
+    .cal-day-cell.today { background: #EFF6FF; }
+    .cal-day-cell.today .cal-day-num { background: var(--primary-blue); color: #fff; }
+    .cal-day-num { font-size: 0.82rem; font-weight: 700; color: var(--text-main); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+    .cal-day-cell.is-sunday .cal-day-num { color: #EF4444; }
+    .cal-event { display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 600; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: var(--transition); }
+    .cal-event:hover { filter: brightness(0.92); }
+    .evt-pessoal { background: #DBEAFE; color: #1D4ED8; } .evt-fiscal { background: #EDE9FE; color: #6D28D9; } .evt-contabil { background: #FCE7F3; color: #BE185D; } .evt-anual { background: #FEF3C7; color: #B45309; }
+    .cal-more-events { font-size: 0.68rem; font-weight: 600; color: var(--text-dim); padding: 1px 4px; cursor: pointer; }
+    .cal-more-events:hover { color: var(--primary-blue); }
+    .cal-side-panel { display: flex; flex-direction: column; gap: 16px; }
+    .cal-panel-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); }
+    .cal-panel-title { font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .upcoming-list { display: flex; flex-direction: column; gap: 10px; }
+    .upcoming-item { display: flex; gap: 10px; align-items: flex-start; }
+    .upcoming-date-badge { min-width: 42px; padding: 4px 8px; background: var(--bg-card-subtle); border-radius: var(--radius-sm); text-align: center; border: 1px solid var(--border-color); }
+    .upcoming-date-badge .day { font-size: 1.1rem; font-weight: 800; color: var(--text-main); line-height: 1; }
+    .upcoming-date-badge .mon { font-size: 0.6rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+    .upcoming-content { flex: 1; }
+    .upcoming-name { font-size: 0.82rem; font-weight: 600; color: var(--text-main); }
+    .upcoming-client { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+    .upcoming-status { margin-top: 3px; }
+    .progress-item { margin-bottom: 12px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600; color: var(--text-main); margin-bottom: 5px; }
+    .progress-bar-track { height: 6px; background: var(--bg-card-subtle); border-radius: 3px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+    .modal-backdrop-wrap { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; opacity: 0; visibility: hidden; transition: var(--transition); }
+    .modal-backdrop-wrap.active { opacity: 1; visibility: visible; }
+    .modal-card-box { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg); width: 100%; max-width: 520px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    .modal-head { padding: 18px 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; }
+    .modal-head h3 { font-size: 1.05rem; font-weight: 700; color: var(--text-main); }
+    .modal-close-trigger { background: transparent; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; }
+    .modal-content-scroll { padding: 20px 24px; overflow-y: auto; flex: 1; }
+    .day-events-list { display: flex; flex-direction: column; gap: 10px; }
+    .day-event-card { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 14px; border-left: 4px solid var(--primary-blue); }
+    .day-event-card.dept-pessoal { border-left-color: #3B82F6; } .day-event-card.dept-fiscal { border-left-color: #8B5CF6; } .day-event-card.dept-anual { border-left-color: #F59E0B; } .day-event-card.dept-contabil { border-left-color: #EC4899; }
+    .day-event-name { font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 2px; }
+    .day-event-client { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px; }
+    .day-event-meta { display: flex; gap: 8px; align-items: center; }
+    #toast-deck { position: fixed; bottom: 24px; right: 80px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+  </style>
+</head>
+<body>
+<div id="app-container">
+  <aside class="sidebar">
+    <div class="brand-box">
+      <div class="brand-icon-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
+      </div>
+      <div class="brand-text"><h2>Voal Consult</h2><span>ERP &amp; Gestão Contábil</span></div>
+    </div>
+    <div class="nav-label">Navegação</div>
+    <ul class="nav-menu">
+      <li class="nav-item"><a href="index.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span><span>Painel Geral</span></a></li>
+      <li class="nav-item"><a href="clientes.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Carteira de Clientes</span></a></li>
+      <li class="nav-item active"><a href="calendario.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></span><span>Calendário Fiscal</span></a></li>
+      <li class="nav-item"><a href="conformidade.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span><span>Conformidade Fiscal</span></a></li>
+      <li class="nav-item"><a href="cnds.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg></span><span>Matriz de CNDs</span></a></li>
+      <li class="nav-item"><a href="honorarios.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg></span><span>Honorários (MRR)</span></a></li>
+      <li class="nav-item"><a href="relatorios.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span><span>Relatórios</span></a></li>
+      <li class="nav-item"><a href="configuracoes.html"><span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span><span>Configurações &amp; Backup</span></a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="user-avatar-tag">VC</div>
+      <div><div style="font-size:0.85rem;font-weight:700;color:var(--text-main);">Voal Consult</div><div style="font-size:0.72rem;color:var(--text-muted);">Equipe Interna</div></div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <button class="sidebar-collapse-btn" title="Menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg></button>
+        <div style="font-size:0.85rem;color:var(--text-muted);font-weight:500;">Voal Consult &bull; Calendário Fiscal de Obrigações</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:var(--bg-card);padding:4px 10px;border-radius:var(--radius-md);border:1px solid var(--border-color);">
+        <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">ANO:</span>
+        <select id="cal-year-select" style="background:transparent;border:none;color:var(--text-main);font-weight:600;font-size:0.82rem;outline:none;cursor:pointer;"><option value="2026" selected>2026</option><option value="2027">2027</option></select>
+      </div>
+    </header>
+
+    <div class="page-container">
+      <div class="dashboard-header">
+        <div class="dashboard-title">
+          <h1>Calendário Fiscal de Obrigações</h1>
+          <p>Visualização mensal dos prazos, entregas e obrigações de toda a carteira.</p>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <a href="conformidade.html" class="btn-figma-secondary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 16 2 2 4-4"/><rect width="18" height="18" x="3" y="4" rx="2"/></svg>
+            Ver Lista de Obrigações
+          </a>
+          <button class="btn-figma-primary" onclick="Cal.goToday()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Hoje
+          </button>
+        </div>
+      </div>
+
+      <div class="cal-layout">
+        <div>
+          <div class="cal-nav-bar">
+            <div class="cal-nav-btns">
+              <button class="cal-nav-btn" onclick="Cal.prevMonth()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Anterior
+              </button>
+              <button class="cal-nav-btn" onclick="Cal.goToday()">Hoje</button>
+              <button class="cal-nav-btn" onclick="Cal.nextMonth()">
+                Próximo <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+            <div class="cal-nav-title" id="cal-title">Agosto de 2026</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span style="font-size:0.75rem;color:var(--text-muted);">Dept.:</span>
+              <select id="cal-dept-filter" onchange="Cal.render()" style="background:var(--bg-card-subtle);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px 8px;font-size:0.78rem;font-weight:600;color:var(--text-main);outline:none;cursor:pointer;">
+                <option value="TODOS">Todos</option>
+                <option value="FISCAL">Fiscal</option>
+                <option value="PESSOAL">Pessoal</option>
+                <option value="CONTABIL">Contábil</option>
+                <option value="ANUAL">Anuais</option>
+              </select>
+            </div>
+          </div>
+          <div class="cal-legend">
+            <div class="cal-legend-item"><div class="cal-legend-dot dot-pessoal"></div>Pessoal / eSocial</div>
+            <div class="cal-legend-item"><div class="cal-legend-dot dot-fiscal"></div>Fiscal / Apuração</div>
+            <div class="cal-legend-item"><div class="cal-legend-dot dot-contabil"></div>SPED Contábil</div>
+            <div class="cal-legend-item"><div class="cal-legend-dot dot-anual"></div>Obrigação Anual</div>
+          </div>
+          <div class="cal-grid-wrap">
+            <div class="cal-weekdays">
+              <div class="cal-weekday">Dom</div><div class="cal-weekday">Seg</div><div class="cal-weekday">Ter</div>
+              <div class="cal-weekday">Qua</div><div class="cal-weekday">Qui</div><div class="cal-weekday">Sex</div><div class="cal-weekday">Sáb</div>
+            </div>
+            <div class="cal-days-grid" id="cal-days-grid"></div>
+          </div>
+        </div>
+
+        <div class="cal-side-panel">
+          <div class="cal-panel-card">
+            <div class="cal-panel-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              Próximos Vencimentos
+            </div>
+            <div class="upcoming-list" id="upcoming-list"></div>
+          </div>
+          <div class="cal-panel-card">
+            <div class="cal-panel-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              Progresso do Mês
+            </div>
+            <div id="month-progress-bars"></div>
+          </div>
+          <div class="cal-panel-card">
+            <div class="cal-panel-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+              Obrigações por Depto.
+            </div>
+            <div id="dept-summary"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-backdrop-wrap" id="modal-day-events">
+  <div class="modal-card-box">
+    <div class="modal-head">
+      <h3 id="modal-day-title">Obrigações do dia</h3>
+      <button class="modal-close-trigger" onclick="Cal.closeModal()">&times;</button>
+    </div>
+    <div class="modal-content-scroll">
+      <div class="day-events-list" id="modal-day-events-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-deck"></div>
+
+<script src="js/validators.js"></script>
+<script src="js/data.js"></script>
+<script src="js/obligations.js"></script>
+<script>
+const OB_CATALOG = [
+  { code:'FOLHA',   name:'Fechamento de Folha e Pró-Labore (eSocial)', day:5,  dept:'PESSOAL',  clients:['Sabor Paulista Grill','TechVanguard Labs','Alpha Metalúrgica','Clínica Hiroshi'] },
+  { code:'DCTFWEB', name:'DCTFWeb — Previdenciária e Retenções',        day:15, dept:'PESSOAL',  clients:['TechVanguard Labs','Alpha Metalúrgica','Clínica Hiroshi'] },
+  { code:'EFD_REINF',name:'EFD-Reinf — Retenções e Serviços Tomados',  day:15, dept:'FISCAL',   clients:['TechVanguard Labs','Alpha Metalúrgica'] },
+  { code:'EFD_CONTRIB',name:'EFD-Contribuições (PIS/COFINS)',           day:15, dept:'FISCAL',   clients:['Alpha Metalúrgica','Clínica Hiroshi'] },
+  { code:'PGDAS',   name:'PGDAS-D — Apuração Simples Nacional / DAS',  day:20, dept:'FISCAL',   clients:['Sabor Paulista Grill','Studio Zen'] },
+  { code:'SPED_F',  name:'EFD ICMS IPI (SPED Fiscal)',                  day:20, dept:'FISCAL',   clients:['Alpha Metalúrgica'] },
+  { code:'FGTS',    name:'FGTS Digital / Guia Rápida',                  day:20, dept:'PESSOAL',  clients:['Sabor Paulista Grill','TechVanguard Labs','Alpha Metalúrgica'] },
+  { code:'DAS_MEI', name:'DAS-SIMEI (MEI)',                             day:20, dept:'FISCAL',   clients:['M.V. Instalações Elétricas'] },
+  { code:'DMED',    name:'DMED — Serviços Médicos e de Saúde',          day:28, fixedMonth:1, dept:'ANUAL', clients:['Clínica Hiroshi'] },
+  { code:'DIRF',    name:'DIRF — IR Retido na Fonte',                   day:28, fixedMonth:1, dept:'ANUAL', clients:['TechVanguard Labs','Alpha Metalúrgica'] },
+  { code:'RAIS',    name:'RAIS — Relação Anual de Informações Sociais', day:31, fixedMonth:2, dept:'ANUAL', clients:['Sabor Paulista Grill','TechVanguard Labs','Alpha Metalúrgica'] },
+  { code:'DASN_M',  name:'DASN-SIMEI — Declaração Anual MEI',           day:31, fixedMonth:4, dept:'ANUAL', clients:['M.V. Instalações Elétricas'] },
+  { code:'ECD',     name:'ECD — Escrituração Contábil Digital (SPED)',  day:31, fixedMonth:6, dept:'CONTABIL', clients:['Alpha Metalúrgica','Clínica Hiroshi'] },
+  { code:'ECF',     name:'ECF — Escrituração Contábil Fiscal',          day:31, fixedMonth:6, dept:'CONTABIL', clients:['TechVanguard Labs','Alpha Metalúrgica'] },
+  { code:'DASN',    name:'DASN — Declaração Anual Simples Nacional',    day:31, fixedMonth:6, dept:'ANUAL',    clients:['Sabor Paulista Grill','Studio Zen'] },
+];
+const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MONTHS_SH = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+const Cal = {
+  year: new Date().getFullYear(),
+  month: new Date().getMonth(),
+  init() { this.render(); this.renderUpcoming(); },
+  prevMonth() { if(--this.month<0){this.month=11;this.year--;} this.render(); this.renderUpcoming(); },
+  nextMonth() { if(++this.month>11){this.month=0;this.year++;} this.render(); this.renderUpcoming(); },
+  goToday() { const n=new Date(); this.year=n.getFullYear(); this.month=n.getMonth(); this.render(); this.renderUpcoming(); },
+
+  getEvts(day, month, year) {
+    const df = document.getElementById('cal-dept-filter')?.value || 'TODOS';
+    return OB_CATALOG.filter(ob => {
+      const deptOk = df==='TODOS' || df===ob.dept;
+      if(ob.fixedMonth !== undefined) return ob.fixedMonth===month && ob.day===day && deptOk;
+      return ob.day===day && deptOk;
+    });
+  },
+  getEvtsAll(day, month, year) {
+    return OB_CATALOG.filter(ob => {
+      if(ob.fixedMonth !== undefined) return ob.fixedMonth===month && ob.day===day;
+      return ob.day===day;
+    });
+  },
+  deptEvtCls(dept) { return {PESSOAL:'evt-pessoal',FISCAL:'evt-fiscal',CONTABIL:'evt-contabil',ANUAL:'evt-anual'}[dept]||'evt-fiscal'; },
+  deptCardCls(dept){ return {PESSOAL:'dept-pessoal',FISCAL:'dept-fiscal',CONTABIL:'dept-contabil',ANUAL:'dept-anual'}[dept]||'dept-fiscal'; },
+  deptChipCls(dept){ return {PESSOAL:'chip-info',FISCAL:'chip-info',CONTABIL:'chip-danger',ANUAL:'chip-warning'}[dept]||'chip-muted'; },
+
+  render() {
+    const el = id => document.getElementById(id);
+    if(el('cal-title')) el('cal-title').textContent = MONTHS_PT[this.month]+' de '+this.year;
+    const grid = el('cal-days-grid'); if(!grid) return;
+    const firstDow = new Date(this.year, this.month, 1).getDay();
+    const days = new Date(this.year, this.month+1, 0).getDate();
+    const prevDays = new Date(this.year, this.month, 0).getDate();
+    const today = new Date();
+    let h='', cells=0;
+    for(let i=firstDow-1;i>=0;i--){ h+=`<div class="cal-day-cell other-month"><div class="cal-day-num">${prevDays-i}</div></div>`; cells++; }
+    for(let d=1;d<=days;d++){
+      const isToday = d===today.getDate()&&this.month===today.getMonth()&&this.year===today.getFullYear();
+      const dow = new Date(this.year,this.month,d).getDay();
+      const evts = this.getEvts(d,this.month,this.year);
+      let ev=''; const max=3;
+      evts.slice(0,max).forEach(e=>{ev+=`<div class="cal-event ${this.deptEvtCls(e.dept)}" onclick="Cal.openDayModal(${d})" title="${e.name}"><span style="width:5px;height:5px;background:currentColor;border-radius:50%;flex-shrink:0;display:inline-block;"></span>${e.code}</div>`;});
+      if(evts.length>max) ev+=`<div class="cal-more-events" onclick="Cal.openDayModal(${d})">+${evts.length-max} mais</div>`;
+      h+=`<div class="cal-day-cell${isToday?' today':''}${dow===0?' is-sunday':''}"><div class="cal-day-num">${d}</div>${ev}</div>`;
+      cells++;
+    }
+    const rem=42-cells; for(let d=1;d<=rem;d++) h+=`<div class="cal-day-cell other-month"><div class="cal-day-num">${d}</div></div>`;
+    grid.innerHTML=h;
+    this.renderProgress();
+    this.renderDeptSummary();
+  },
+
+  openDayModal(day) {
+    const evts = this.getEvts(day,this.month,this.year);
+    const t=document.getElementById('modal-day-title');
+    const l=document.getElementById('modal-day-events-list');
+    if(t) t.textContent=`${day} de ${MONTHS_PT[this.month]} de ${this.year}`;
+    if(l) l.innerHTML = evts.length ? evts.map(ev=>`
+      <div class="day-event-card ${this.deptCardCls(ev.dept)}">
+        <div class="day-event-name">${ev.name}</div>
+        <div class="day-event-client">${(ev.clients||[]).join(' &bull; ')}</div>
+        <div class="day-event-meta">
+          <span class="chip ${this.deptChipCls(ev.dept)}" style="font-size:0.68rem;">${ev.dept}</span>
+          <span class="chip chip-muted" style="font-size:0.68rem;">Vence: ${String(day).padStart(2,'0')}/${String(this.month+1).padStart(2,'0')}/${this.year}</span>
+        </div>
+      </div>`).join('') : '<p style="color:var(--text-muted);font-size:0.88rem;text-align:center;padding:20px 0;">Nenhuma obrigação neste dia.</p>';
+    document.getElementById('modal-day-events')?.classList.add('active');
+  },
+  closeModal() { document.getElementById('modal-day-events')?.classList.remove('active'); },
+
+  renderUpcoming() {
+    const list = document.getElementById('upcoming-list'); if(!list) return;
+    const today = new Date(); const items = [];
+    for(let i=0;i<=30;i++){
+      const d = new Date(today); d.setDate(today.getDate()+i);
+      this.getEvtsAll(d.getDate(),d.getMonth(),d.getFullYear()).forEach(ev=>items.push({...ev,date:new Date(d),day:d.getDate(),month:d.getMonth()}));
+    }
+    items.sort((a,b)=>a.date-b.date);
+    if(!items.length){ list.innerHTML='<p style="color:var(--text-muted);font-size:0.82rem;">Sem obrigações próximas.</p>'; return; }
+    list.innerHTML=items.slice(0,6).map(item=>{
+      const dl=Math.round((item.date-today)/86400000);
+      let sc='chip-success',st=`Em ${dl} dias`;
+      if(dl<=0){sc='chip-danger';st='Hoje!';}else if(dl<=3){sc='chip-danger';st=`${dl}d`;}else if(dl<=7){sc='chip-warning';st=`${dl} dias`;}
+      return `<div class="upcoming-item">
+        <div class="upcoming-date-badge"><div class="day">${String(item.day).padStart(2,'0')}</div><div class="mon">${MONTHS_SH[item.month]}</div></div>
+        <div class="upcoming-content">
+          <div class="upcoming-name">${item.code}</div>
+          <div class="upcoming-client">${(item.clients||[]).slice(0,2).join(', ')}</div>
+          <div class="upcoming-status"><span class="chip ${sc}" style="font-size:0.65rem;">${st}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  renderProgress() {
+    const c=document.getElementById('month-progress-bars'); if(!c) return;
+    const today=new Date();
+    const isCurr=today.getMonth()===this.month&&today.getFullYear()===this.year;
+    const totalDays=new Date(this.year,this.month+1,0).getDate();
+    const passed=isCurr?today.getDate():totalDays;
+    const pct=passed/totalDays;
+    const depts=[
+      {name:'Pessoal / eSocial',total:OB_CATALOG.filter(o=>o.dept==='PESSOAL'&&o.fixedMonth===undefined).length*2,color:'#3B82F6'},
+      {name:'Fiscal / Apuração',total:OB_CATALOG.filter(o=>o.dept==='FISCAL'&&o.fixedMonth===undefined).length*2,color:'#8B5CF6'},
+      {name:'Contábil / SPED',total:3,color:'#EC4899'},
+    ];
+    c.innerHTML=depts.map(d=>{
+      const done=Math.round(d.total*pct);
+      const p=Math.round((done/d.total)*100);
+      return `<div class="progress-item">
+        <div class="progress-label"><span>${d.name}</span><span style="color:var(--text-muted);font-family:var(--font-mono);">${done}/${d.total}</span></div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${p}%;background:${d.color};"></div></div>
+      </div>`;
+    }).join('');
+  },
+
+  renderDeptSummary() {
+    const c=document.getElementById('dept-summary'); if(!c) return;
+    const obs=OB_CATALOG.filter(o=>o.fixedMonth===undefined||(o.fixedMonth===this.month));
+    const counts={}; obs.forEach(ob=>{ counts[ob.dept]=(counts[ob.dept]||0)+(ob.clients||[]).length; });
+    const cm={PESSOAL:'#3B82F6',FISCAL:'#8B5CF6',CONTABIL:'#EC4899',ANUAL:'#F59E0B'};
+    const nm={PESSOAL:'Pessoal / eSocial',FISCAL:'Fiscal / Apuração',CONTABIL:'SPED Contábil',ANUAL:'Obrigações Anuais'};
+    c.innerHTML=Object.entries(counts).map(([dept,cnt])=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color);">
+        <div style="display:flex;align-items:center;gap:8px;"><div style="width:8px;height:8px;border-radius:50%;background:${cm[dept]};"></div><span style="font-size:0.82rem;color:var(--text-main);">${nm[dept]||dept}</span></div>
+        <span style="font-size:0.82rem;font-weight:700;font-family:var(--font-mono);color:var(--text-muted);">${cnt} entregas</span>
+      </div>`).join('');
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  Cal.init();
+  document.getElementById('modal-day-events')?.addEventListener('click', e => { if(e.target===e.currentTarget) Cal.closeModal(); });
+});
+</script>
+</body>
+</html>
