@@ -154,8 +154,11 @@ const Validators = {
 
   // Status e Badge de vencimento (Certificado Digital, CND, etc.)
   getExpirationStatus(dateStr, warningDays = 30) {
+    // badgeClass sempre no formato "chip-*", para casar com as classes
+    // reais definidas em css/styles.css (usadas em todo o app como
+    // `class="chip ${status.badgeClass}"`).
     if (!dateStr) {
-      return { status: 'none', label: 'Não informado', days: null, badgeClass: 'badge-secondary' };
+      return { status: 'none', label: 'Não informado', days: null, badgeClass: 'chip-muted' };
     }
     const days = this.daysUntil(dateStr);
     if (days < 0) {
@@ -163,7 +166,7 @@ const Validators = {
         status: 'expired',
         label: `Vencido há ${Math.abs(days)} dia(s)`,
         days,
-        badgeClass: 'badge-danger'
+        badgeClass: 'chip-danger'
       };
     }
     if (days === 0) {
@@ -171,7 +174,7 @@ const Validators = {
         status: 'today',
         label: 'Vence Hoje!',
         days,
-        badgeClass: 'badge-danger'
+        badgeClass: 'chip-danger'
       };
     }
     if (days <= warningDays) {
@@ -179,14 +182,14 @@ const Validators = {
         status: 'warning',
         label: `Vence em ${days} dia(s)`,
         days,
-        badgeClass: 'badge-warning'
+        badgeClass: 'chip-warning'
       };
     }
     return {
       status: 'valid',
       label: `Válido (${days} dias)`,
       days,
-      badgeClass: 'badge-success'
+      badgeClass: 'chip-success'
     };
   },
 

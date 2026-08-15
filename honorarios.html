@@ -6,80 +6,10 @@
   <title>Gestão de Honorários (MRR) — Voal Consult</title>
   <meta name="description" content="Controle Financeiro de Honorários e Receita Recorrente — Voal Consult">
   
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="css/styles.css">
-  <style>
-    :root {
-      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-      --bg-app: #F8FAFC;
-      --bg-sidebar: #FFFFFF;
-      --bg-card: #FFFFFF;
-      --bg-card-subtle: #F1F5F9;
-      --bg-input: #FFFFFF;
-      --border-color: #E2E8F0;
-      --border-card: #E2E8F0;
-      --text-main: #0F172A;
-      --text-muted: #64748B;
-      --text-dim: #94A3B8;
-      --primary-blue: #2563EB; --primary-blue-hover: #1D4ED8;
-      --fab-bg: #0F172A; --fab-text: #FFFFFF;
-      --sidebar-width: 250px;
-      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-full: 9999px;
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-      --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
-      --transition: all 0.15s ease-in-out;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-sans); }
-    body { background-color: var(--bg-app); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-    #app-container { display: flex; width: 100%; min-height: 100vh; }
-    aside.sidebar { width: var(--sidebar-width); background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; }
-    .brand-box { padding: 18px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-color); }
-    .brand-icon-box { width: 36px; height: 36px; background: #0F172A; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: #FFFFFF; flex-shrink: 0; }
-    .brand-text h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-main); line-height: 1.2; }
-    .brand-text span { font-size: 0.72rem; color: var(--text-muted); }
-    .nav-label { font-size: 0.72rem; font-weight: 600; color: var(--text-dim); padding: 16px 20px 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .nav-menu { list-style: none; padding: 4px 12px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-    .nav-item a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; color: var(--text-muted); text-decoration: none; border-radius: var(--radius-md); font-size: 0.88rem; font-weight: 500; transition: var(--transition); cursor: pointer; }
-    .nav-item a:hover { background-color: var(--bg-card-subtle); color: var(--text-main); }
-    .nav-item.active a { background-color: var(--bg-card-subtle); color: var(--text-main); font-weight: 600; }
-    .nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted); }
-    .nav-item.active .nav-icon { color: var(--text-main); }
-    .sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; }
-    .user-avatar-tag { width: 32px; height: 32px; border-radius: 50%; background: #0F172A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem; }
-    main.main-content { margin-left: var(--sidebar-width); flex: 1; display: flex; flex-direction: column; min-height: 100vh; width: calc(100% - var(--sidebar-width)); }
-    header.top-header { height: 56px; background: #FFFFFF; border-bottom: 1px solid var(--border-color); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
-    .header-left { display: flex; align-items: center; gap: 16px; }
-    .sidebar-collapse-btn { background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 6px; color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .page-container { padding: 28px 32px 60px; flex: 1; max-width: 1440px; width: 100%; margin: 0 auto; }
-    .dashboard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
-    .dashboard-title h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.4px; }
-    .dashboard-title p { font-size: 0.88rem; color: var(--text-muted); margin-top: 3px; }
-    .btn-figma-primary { background-color: var(--primary-blue); color: #FFFFFF; border: 1px solid transparent; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; border-radius: var(--radius-md); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: var(--transition); text-decoration: none; }
-    .btn-figma-primary:hover { background-color: var(--primary-blue-hover); }
-    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-    .kpi-card { background-color: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); }
-    .kpi-label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
-    .kpi-value { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; color: var(--text-main); margin-bottom: 8px; line-height: 1.1; font-family: var(--font-sans); }
-    .table-container { width: 100%; overflow-x: auto; background-color: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
-    table.figma-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
-    table.figma-table th { background-color: var(--bg-card-subtle); color: var(--text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 14px 18px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
-    table.figma-table td { padding: 14px 18px; border-bottom: 1px solid var(--border-color); color: var(--text-main); vertical-align: middle; }
-    table.figma-table tbody tr:hover { background-color: var(--bg-card-subtle); }
-    .client-anchor { font-weight: 600; color: var(--text-main); cursor: pointer; text-decoration: none; }
-    .client-anchor:hover { color: var(--primary-blue); }
-    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-sm); font-size: 0.72rem; font-weight: 600; }
-    .chip-success { background: #DCFCE7; color: #15803D; }
-    .chip-warning { background: #FEF3C7; color: #B45309; }
-    .chip-danger { background: #FEE2E2; color: #B91C1C; }
-    .chip-info { background: #DBEAFE; color: #1D4ED8; }
-    .chip-muted { background: var(--bg-card-subtle); color: var(--text-muted); }
-  </style>
 </head>
-<body>
+<body data-page="honorarios">
 
   <div id="app-container">
     
@@ -157,83 +87,6 @@
               </tr>
             </thead>
             <tbody id="financial-table-tbody">
-              <tr>
-                <td>
-                  <a class="client-anchor" href="dossie.html?id=cli_001">Sabor Paulista Grill</a>
-                  <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">12.345.678/0001-90</div>
-                </td>
-                <td><span class="chip chip-info">Simples Nacional</span></td>
-                <td style="font-weight:700; color:#10B981; font-family:var(--font-mono);">R$ 1.850,00</td>
-                <td>Dia 10</td>
-                <td><span class="chip chip-muted">Boleto</span></td>
-                <td><span class="chip chip-success">Sim</span></td>
-                <td style="font-size:0.8rem; color:var(--text-muted);">Reajuste anual pelo IPCA.</td>
-              </tr>
-
-              <tr>
-                <td>
-                  <a class="client-anchor" href="dossie.html?id=cli_002">TechVanguard Labs</a>
-                  <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">23.456.789/0001-01</div>
-                </td>
-                <td><span class="chip chip-info">Lucro Presumido</span></td>
-                <td style="font-weight:700; color:#10B981; font-family:var(--font-mono);">R$ 3.400,00</td>
-                <td>Dia 15</td>
-                <td><span class="chip chip-muted">PIX</span></td>
-                <td><span class="chip chip-success">Sim</span></td>
-                <td style="font-size:0.8rem; color:var(--text-muted);">Inclui folha para 18 desenvolvedores.</td>
-              </tr>
-
-              <tr>
-                <td>
-                  <a class="client-anchor" href="dossie.html?id=cli_003">Alpha Metalúrgica</a>
-                  <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">34.567.890/0001-12</div>
-                </td>
-                <td><span class="chip chip-info">Lucro Real</span></td>
-                <td style="font-weight:700; color:#10B981; font-family:var(--font-mono);">R$ 5.200,00</td>
-                <td>Dia 20</td>
-                <td><span class="chip chip-muted">Transferência</span></td>
-                <td><span class="chip chip-success">Sim</span></td>
-                <td style="font-size:0.8rem; color:var(--text-muted);">Lucro Real com Sped Fiscal e LALUR.</td>
-              </tr>
-
-              <tr>
-                <td>
-                  <a class="client-anchor" href="dossie.html?id=cli_004">Clínica Oftalmológica Hiroshi</a>
-                  <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">45.678.901/0001-23</div>
-                </td>
-                <td><span class="chip chip-info">Lucro Presumido</span></td>
-                <td style="font-weight:700; color:#10B981; font-family:var(--font-mono);">R$ 2.600,00</td>
-                <td>Dia 10</td>
-                <td><span class="chip chip-muted">Boleto</span></td>
-                <td><span class="chip chip-success">Sim</span></td>
-                <td style="font-size:0.8rem; color:var(--text-muted);">Inclui Dmed anual.</td>
-              </tr>
-
-              <tr>
-                <td>
-                  <a class="client-anchor" href="dossie.html?id=cli_005">M.V. Instalações Elétricas</a>
-                  <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">56.789.012/0001-34</div>
-                </td>
-                <td><span class="chip chip-warning">MEI</span></td>
-                <td style="font-weight:700; color:#10B981; font-family:var(--font-mono);">R$ 250,00</td>
-                <td>Dia 5</td>
-                <td><span class="chip chip-muted">PIX</span></td>
-                <td><span class="chip chip-muted">Não</span></td>
-                <td style="font-size:0.8rem; color:var(--text-muted);">Emissão mensal do DAS-SIMEI.</td>
-              </tr>
-
-              <tr>
-                <td>
-                  <a class="client-anchor" href="dossie.html?id=cli_006">Studio Zen</a>
-                  <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">67.890.123/0001-45</div>
-                </td>
-                <td><span class="chip chip-info">Simples Nacional</span></td>
-                <td style="font-weight:700; color:#10B981; font-family:var(--font-mono);">R$ 1.200,00</td>
-                <td>Dia 15</td>
-                <td><span class="chip chip-muted">Boleto</span></td>
-                <td><span class="chip chip-success">Sim</span></td>
-                <td style="font-size:0.8rem; color:var(--text-muted);">Assessoria contábil mensal.</td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -246,6 +99,7 @@
   <script src="js/validators.js"></script>
   <script src="js/data.js"></script>
   <script src="js/obligations.js"></script>
+  <script src="js/sidebar.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

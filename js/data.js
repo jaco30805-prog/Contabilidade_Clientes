@@ -549,13 +549,13 @@ const DataStore = {
   resetToSampleData() {
     const initial = this.getInitialSampleData();
     this.saveClients(initial);
-    localStorage.removeItem('voal_monthly_obligations_v3');
+    localStorage.removeItem(ObligationsManager.STORAGE_KEY);
     return initial;
   },
 
   exportJSON() {
     const clients = this.getClients();
-    const obligations = localStorage.getItem('voal_monthly_obligations_v3') || '[]';
+    const obligations = localStorage.getItem(ObligationsManager.STORAGE_KEY) || '[]';
     const backup = {
       version: '3.0.0',
       exportedAt: new Date().toISOString(),
@@ -574,7 +574,7 @@ const DataStore = {
       }
       this.saveClients(data.clients);
       if (data.obligations) {
-        localStorage.setItem('voal_monthly_obligations_v3', JSON.stringify(data.obligations));
+        localStorage.setItem(ObligationsManager.STORAGE_KEY, JSON.stringify(data.obligations));
       }
       return { success: true, count: data.clients.length };
     } catch (err) {

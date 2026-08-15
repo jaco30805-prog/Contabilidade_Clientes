@@ -10,84 +10,62 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 const App = {
-  currentView: 'dashboard',
+  // Cada página é independente (multi-página): esta chave vem do
+  // atributo <body data-page="..."> e diz qual tela renderizar ao carregar.
+  currentPage: null,
   selectedClientId: null,
   selectedCompetence: ObligationsManager.getCurrentCompetence(),
 
   init() {
+    this.currentPage = document.body.dataset.page || '';
     this.setupEventListeners();
     this.renderHeaderCompetenceSelector();
-    this.navigate('dashboard');
+    this.renderCurrentPage();
   },
 
   // =========================================================================
-  // Navegação SPA
+  // Despacho por página
   // =========================================================================
-  navigate(viewName, params = {}) {
-    this.currentView = viewName;
-    
-    // Atualizar Barra Lateral
-    document.querySelectorAll('.nav-item').forEach(item => {
-      if (item.dataset.view === viewName) {
-        item.classList.add('active');
-      } else {
-        item.classList.remove('active');
-      }
-    });
-
-    // Ocultar seções
-    document.querySelectorAll('.view-section').forEach(sec => {
-      sec.classList.remove('active');
-    });
-
-    // Ativar seção alvo
-    const activeSection = document.getElementById(`view-${viewName}`);
-    if (activeSection) {
-      activeSection.classList.add('active');
-    }
-
-    // Renderizar conteúdo específico da tela
-    switch (viewName) {
+  // Cada página HTML já é a sua própria rota (clientes.html, cnds.html...).
+  // Esta função só decide qual renderização rodar ao carregar a página atual.
+  renderCurrentPage() {
+    switch (this.currentPage) {
       case 'dashboard':
         this.renderDashboard();
         break;
-      case 'clients':
+      case 'clientes':
         this.renderClientsList();
         break;
-      case 'client-detail':
-        if (params.id) this.selectedClientId = params.id;
+      case 'dossie': {
+        const params = new URLSearchParams(window.location.search);
+        this.selectedClientId = params.get('id') || this.selectedClientId;
         this.renderClientDetail(this.selectedClientId);
         break;
-      case 'obligations':
+      }
+      case 'conformidade':
         this.renderObligationsView();
         break;
       case 'cnds':
         this.renderCNDsView();
         break;
-      case 'financial':
+      case 'honorarios':
         this.renderFinancialView();
         break;
-      case 'reports':
+      case 'configuracoes':
         this.renderReportsView();
         break;
     }
+  },
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Navega para o dossiê de um cliente (página própria, recebe ?id= na URL)
+  goToClient(clientId) {
+    window.location.href = `dossie.html?id=${encodeURIComponent(clientId)}`;
   },
 
   // =========================================================================
   // Configuração de Eventos
   // =========================================================================
   setupEventListeners() {
-    // Menu da Barra Lateral
-    document.querySelectorAll('.nav-item a').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const view = e.currentTarget.parentElement.dataset.view;
-        if (view) this.navigate(view);
-      });
-    });
-
     // Fechar Modais
     document.querySelectorAll('.modal-backdrop-wrap, .modal-backdrop').forEach(modal => {
       modal.addEventListener('click', (e) => {
@@ -131,8 +109,8 @@ const App = {
     selector.addEventListener('change', (e) => {
       this.selectedCompetence = e.target.value;
       ObligationsManager.syncCompetenceObligations(this.selectedCompetence);
-      if (this.currentView === 'obligations') this.renderObligationsView();
-      if (this.currentView === 'dashboard') this.renderDashboard();
+      if (this.currentPage === 'conformidade') this.renderObligationsView();
+      if (this.currentPage === 'dashboard') this.renderDashboard();
     });
   },
 
@@ -165,7 +143,7 @@ const App = {
     }
 
     const elAlerts = document.getElementById('dash-stat-alerts');
-    if (elAlerts) elAlerts.textContent = metrics.overdue > 0 ? `${metrics.overdue} pendências` : '3';
+    if (elAlerts) elAlerts.textContent = `${metrics.overdue} pendências`;
 
     // Resumo Rápido
     const elQuickOverdue = document.getElementById('stat-quick-overdue');
@@ -245,7 +223,7 @@ const App = {
     }
 
     container.innerHTML = allInteractions.slice(0, 4).map(item => `
-      <div class="activity-item" style="cursor:pointer;" onclick="App.navigate('client-detail', { id: '${item.clientId}' })">
+      <div class="activity-item" style="cursor:pointer;" onclick="App.goToClient('${item.clientId}')">
         <div class="activity-icon-bullet ${item.type === 'ALERTA' ? 'warning' : 'success'}">
           ${item.type === 'ALERTA' 
             ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
@@ -345,7 +323,7 @@ const App = {
       return `
         <tr>
           <td>
-            <a class="client-anchor" onclick="App.navigate('client-detail', { id: '${client.id}' })">
+            <a class="client-anchor" onclick="App.goToClient('${client.id}')">
               ${client.companyName || client.tradeName}
             </a>
             <div style="font-size:0.75rem; color:var(--text-muted);">${client.tradeName || '-'}</div>
@@ -370,7 +348,7 @@ const App = {
           </td>
           <td>
             <div style="display:flex; gap:6px; justify-content:flex-end;">
-              <button class="btn-figma-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="App.navigate('client-detail', { id: '${client.id}' })">Ver Dossiê</button>
+              <button class="btn-figma-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="App.goToClient('${client.id}')">Ver Dossiê</button>
               <button class="btn-figma-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="App.openClientModal('${client.id}')">Editar</button>
             </div>
           </td>
@@ -386,7 +364,7 @@ const App = {
     const client = DataStore.getClientById(clientId);
     if (!client) {
       this.showToast('Cliente não localizado no sistema.', 'danger');
-      this.navigate('clients');
+      window.location.href = 'clientes.html';
       return;
     }
 
@@ -620,7 +598,7 @@ const App = {
               <div style="font-size:0.72rem; color:var(--text-dim);">Código: ${item.code}</div>
             </td>
             <td>
-              <div class="client-anchor" onclick="App.navigate('client-detail', { id: '${item.clientId}' })">${item.clientName}</div>
+              <div class="client-anchor" onclick="App.goToClient('${item.clientId}')">${item.clientName}</div>
               <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">${item.clientCnpj || '-'}</div>
             </td>
             <td style="font-family:var(--font-mono);">${Validators.formatDate(item.dueDate)}</td>
@@ -644,6 +622,36 @@ const App = {
   // =========================================================================
   renderCNDsView() {
     const clients = DataStore.getClients().filter(c => c.status === 'ATIVO');
+    const cndTypes = ['federal', 'estadual', 'municipal', 'fgts', 'trabalhista'];
+
+    // KPIs da matriz: cada cliente ativo tem até 5 certidões monitoradas
+    let regularCount = 0, expiringCount = 0, expiredCount = 0, missingCount = 0;
+    clients.forEach(client => {
+      const cnds = client.cnds || {};
+      cndTypes.forEach(type => {
+        const validUntil = cnds[type]?.validUntil;
+        if (!validUntil) { missingCount++; return; }
+        const status = Validators.getExpirationStatus(validUntil, 15).status;
+        if (status === 'expired' || status === 'today') expiredCount++;
+        else if (status === 'warning') expiringCount++;
+        else regularCount++;
+      });
+    });
+
+    const elRegular = document.getElementById('cnd-stat-regular');
+    if (elRegular) elRegular.textContent = regularCount;
+    const elRegularSub = document.getElementById('cnd-stat-regular-sub');
+    if (elRegularSub) elRegularSub.textContent = `de ${clients.length * cndTypes.length} certidões monitoradas`;
+
+    const elExpiring = document.getElementById('cnd-stat-expiring');
+    if (elExpiring) elExpiring.textContent = expiringCount;
+
+    const elExpired = document.getElementById('cnd-stat-expired');
+    if (elExpired) elExpired.textContent = expiredCount;
+
+    const elMissing = document.getElementById('cnd-stat-missing');
+    if (elMissing) elMissing.textContent = missingCount;
+
     const tbody = document.getElementById('cnd-table-tbody');
     if (!tbody) return;
 
@@ -659,7 +667,7 @@ const App = {
       return `
         <tr>
           <td>
-            <div class="client-anchor" onclick="App.navigate('client-detail', { id: '${client.id}' })">${client.companyName || client.tradeName}</div>
+            <div class="client-anchor" onclick="App.goToClient('${client.id}')">${client.companyName || client.tradeName}</div>
             <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">${client.cnpj || client.cpf || '-'}</div>
           </td>
           <td>${renderCell('federal')}</td>
@@ -695,10 +703,10 @@ const App = {
       return `
         <tr>
           <td>
-            <div class="client-anchor" onclick="App.navigate('client-detail', { id: '${client.id}' })">${client.companyName || client.tradeName}</div>
+            <div class="client-anchor" onclick="App.goToClient('${client.id}')">${client.companyName || client.tradeName}</div>
             <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-dim);">${client.cnpj || '-'}</div>
           </td>
-          <td><span class="chip chip-info">${client.taxRegime}</span></td>
+          <td><span class="chip chip-info">${DataStore.TaxRegimes[client.taxRegime]?.name || client.taxRegime}</span></td>
           <td style="font-weight:700; color:#10B981; font-family:var(--font-mono);">${Validators.formatCurrency(fin.monthlyFee || 0)}</td>
           <td>Dia ${fin.dueDay || '10'}</td>
           <td><span class="chip chip-muted">${fin.paymentMethod || 'BOLETO'}</span></td>
@@ -713,6 +721,36 @@ const App = {
   // VIEW: CONFIGURAÇÕES & BACKUP
   // =========================================================================
   renderReportsView() {
+    // Painel "Versão do Sistema": números reais em vez de contagens fixas
+    const clients = DataStore.getClients();
+    const elClientCount = document.getElementById('sys-stat-clients');
+    if (elClientCount) elClientCount.textContent = clients.length;
+
+    const elObligationsCount = document.getElementById('sys-stat-obligations');
+    if (elObligationsCount) elObligationsCount.textContent = ObligationsManager.getAllObligations().length;
+
+    // Certificados Digitais: tabela vem da carteira real de clientes
+    const certTbody = document.getElementById('certificates-table-tbody');
+    if (certTbody) {
+      const withCert = clients.filter(c => c.digitalCertificate?.expirationDate);
+      certTbody.innerHTML = withCert.length === 0
+        ? `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Nenhum certificado digital cadastrado.</td></tr>`
+        : withCert.map(client => {
+            const cert = client.digitalCertificate;
+            const status = Validators.getExpirationStatus(cert.expirationDate, 30);
+            return `
+              <tr>
+                <td><a class="client-anchor" href="dossie.html?id=${client.id}">${client.companyName || client.tradeName}</a></td>
+                <td style="font-family:var(--font-mono);font-size:0.8rem;">${client.cnpj || client.cpf || '-'}</td>
+                <td><span class="chip chip-info">${cert.type === 'A3' ? 'e-CNPJ A3' : 'e-CNPJ A1'}</span></td>
+                <td style="font-size:0.8rem;color:var(--text-muted);">${cert.issuer || '-'}</td>
+                <td style="font-family:var(--font-mono);font-size:0.8rem;">${Validators.formatDate(cert.expirationDate)}</td>
+                <td><span class="chip ${status.badgeClass}">${status.label}</span></td>
+              </tr>
+            `;
+          }).join('');
+    }
+
     const btnExportCSV = document.getElementById('btn-export-csv');
     if (btnExportCSV) {
       btnExportCSV.onclick = () => {
@@ -741,7 +779,7 @@ const App = {
           const res = DataStore.importJSON(ev.target.result);
           if (res.success) {
             this.showToast(`${res.count} clientes restaurados com sucesso!`, 'success');
-            this.navigate('clients');
+            setTimeout(() => { window.location.href = 'clientes.html'; }, 800);
           } else {
             this.showToast(`Erro ao importar: ${res.error}`, 'danger');
           }
@@ -757,7 +795,7 @@ const App = {
           DataStore.resetToSampleData();
           ObligationsManager.syncCompetenceObligations();
           this.showToast('Dados demonstrativos restaurados!', 'success');
-          this.navigate('dashboard');
+          setTimeout(() => { window.location.href = 'index.html'; }, 800);
         }
       };
     }
@@ -973,10 +1011,12 @@ const App = {
     this.closeAllModals();
     this.showToast(`Cliente ${saved.companyName || 'salvo'} com sucesso!`, 'success');
 
-    if (this.currentView === 'client-detail' && this.selectedClientId === saved.id) {
+    if (this.currentPage === 'dossie' && this.selectedClientId === saved.id) {
       this.renderClientDetail(saved.id);
+    } else if (this.currentPage === 'clientes') {
+      this.renderClientsList();
     } else {
-      this.navigate('clients');
+      window.location.href = 'clientes.html';
     }
   },
 
@@ -984,7 +1024,11 @@ const App = {
     if (confirm(`Tem certeza que deseja excluir o cliente "${name}" da carteira?`)) {
       DataStore.deleteClient(id);
       this.showToast('Cliente excluído com sucesso.', 'danger');
-      this.navigate('clients');
+      if (this.currentPage === 'clientes') {
+        this.renderClientsList();
+      } else {
+        window.location.href = 'clientes.html';
+      }
     }
   },
 
@@ -1015,9 +1059,9 @@ const App = {
     this.closeAllModals();
     this.showToast('Atendimento registrado com sucesso!', 'success');
 
-    if (this.currentView === 'client-detail' && this.selectedClientId === clientId) {
+    if (this.currentPage === 'dossie' && this.selectedClientId === clientId) {
       this.renderClientDetail(clientId);
-    } else if (this.currentView === 'dashboard') {
+    } else if (this.currentPage === 'dashboard') {
       this.renderDashboard();
     }
   },
@@ -1047,8 +1091,8 @@ const App = {
     this.closeAllModals();
     this.showToast('Status da obrigação atualizado com sucesso!', 'success');
 
-    if (this.currentView === 'obligations') this.renderObligationsView();
-    if (this.currentView === 'dashboard') this.renderDashboard();
+    if (this.currentPage === 'conformidade') this.renderObligationsView();
+    if (this.currentPage === 'dashboard') this.renderDashboard();
   },
 
   openCNDEditModal(clientId) {
@@ -1090,8 +1134,8 @@ const App = {
     this.closeAllModals();
     this.showToast('Validades das certidões atualizadas com sucesso!', 'success');
 
-    if (this.currentView === 'cnds') this.renderCNDsView();
-    if (this.currentView === 'client-detail' && this.selectedClientId === clientId) this.renderClientDetail(clientId);
+    if (this.currentPage === 'cnds') this.renderCNDsView();
+    if (this.currentPage === 'dossie' && this.selectedClientId === clientId) this.renderClientDetail(clientId);
   },
 
   closeAllModals() {
