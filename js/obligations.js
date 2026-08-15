@@ -1,24 +1,17 @@
 /**
  * Voal Consult — ERP & Gestão Contábil
- * Módulo de Gestão de Obrigações Acessórias e Prazos Fiscais
+ * Módulo de Gestão de Obrigações Acessórias e Prazos Fiscais — Supabase
+ *
+ * Mesma lógica de antes (gera obrigações do mês a partir do catálogo +
+ * carteira ativa), mas persistida no Supabase. O cache local (_obligations)
+ * só guarda as competências já sincronizadas nesta sessão de página — cada
+ * tela chama syncCompetenceObligations(competencia) antes de ler dados
+ * daquele mês, então a leitura (getAllObligations, getFilteredObligations,
+ * getMetrics) continua síncrona sobre o que já foi carregado.
  */
 
 const ObligationsManager = {
-  STORAGE_KEY: 'voal_monthly_obligations_v3',
-
-  getAllObligations() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      console.error('Erro ao ler obrigações:', e);
-      return [];
-    }
-  },
-
-  saveAllObligations(list) {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(list));
-  },
+  _obligations: [],
 
   getCurrentCompetence() {
     const d = new Date();
@@ -38,84 +31,133 @@ const ObligationsManager = {
     return `${monthNames[mIndex] || month} de ${year}`;
   },
 
-  syncCompetenceObligations(competence = this.getCurrentCompetence()) {
-    const clients = window.DataStore.getClients().filter(c => c.status === 'ATIVO');
-    const catalog = window.DataStore.DefaultObligationsCatalog;
-    const existing = this.getAllObligations();
-    const [compYear, compMonth] = competence.split('-').map(n => parseInt(n, 10));
-
-    let updatedList = [...existing];
-    let createdCount = 0;
-
-    clients.forEach(client => {
-      const applicableCatalog = catalog.filter(item => {
-        if (!item.applicableRegimes.includes(client.taxRegime)) return false;
-        if (item.frequency === 'ANUAL' && item.dueMonth !== compMonth) return false;
-        return true;
-      });
-
-      applicableCatalog.forEach(rule => {
-        const exists = updatedList.some(
-          ob => ob.clientId === client.id && ob.competence === competence && ob.code === rule.code
-        );
-
-        if (!exists) {
-          const dueDay = Math.min(rule.dueDay, 28);
-          const dueDate = `${compYear}-${String(compMonth).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
-
-          const newObligation = {
-            id: `ob_${client.id}_${competence}_${rule.code}`,
-            clientId: client.id,
-            clientName: client.companyName || client.tradeName,
-            clientCnpj: client.cnpj || client.cpf,
-            taxRegime: client.taxRegime,
-            competence,
-            code: rule.code,
-            title: rule.name,
-            department: rule.department,
-            dueDate,
-            status: 'PENDENTE',
-            completedAt: null,
-            completedBy: '',
-            protocolNumber: '',
-            notes: ''
-          };
-
-          updatedList.push(newObligation);
-          createdCount++;
-        }
-      });
-    });
-
-    if (createdCount > 0) {
-      this.saveAllObligations(updatedList);
-    }
-
+  _mapObligationFromDb(row) {
+    const client = window.DataStore?.getClientById(row.client_id);
     return {
-      competence,
-      totalObligations: updatedList.filter(o => o.competence === competence),
-      createdCount
+      id: row.id,
+      clientId: row.client_id,
+      clientName: client ? (client.companyName || client.tradeName) : '(cliente removido)',
+      clientCnpj: client ? (client.cnpj || client.cpf) : '',
+      taxRegime: client ? client.taxRegime : '',
+      competence: row.competence,
+      code: row.code,
+      title: row.title,
+      department: row.department,
+      dueDate: row.due_date,
+      status: row.status,
+      completedAt: row.completed_at,
+      completedBy: row.completed_by,
+      protocolNumber: row.protocol_number || '',
+      notes: row.notes || ''
     };
   },
 
-  updateObligationStatus(id, updateData) {
-    const list = this.getAllObligations();
-    const index = list.findIndex(o => o.id === id);
-    if (index === -1) return false;
+  // Garante que as obrigações do catálogo existam para todo cliente ativo
+  // nesta competência, e carrega essa competência (do jeito que está no
+  // banco, já mesclando o que outra pessoa da equipe possa ter gerado) para
+  // o cache local.
+  async syncCompetenceObligations(competence = this.getCurrentCompetence()) {
+    try {
+      const clients = (window.DataStore?.getClients() || []).filter(c => c.status === 'ATIVO');
+      const catalog = window.DataStore?.DefaultObligationsCatalog || [];
+      const [compYear, compMonth] = competence.split('-').map(n => parseInt(n, 10));
 
-    if (updateData.status === 'CONCLUIDO' && !list[index].completedAt) {
-      updateData.completedAt = new Date().toISOString();
-    } else if (updateData.status !== 'CONCLUIDO') {
-      updateData.completedAt = null;
+      const { data: existingRows, error: fetchError } = await sb
+        .from('obligations')
+        .select('*')
+        .eq('competence', competence);
+      if (fetchError) throw fetchError;
+
+      const existingKeys = new Set((existingRows || []).map(o => `${o.client_id}::${o.code}`));
+      const toInsert = [];
+
+      clients.forEach(client => {
+        const applicable = catalog.filter(item => {
+          if (!item.applicableRegimes.includes(client.taxRegime)) return false;
+          if (item.frequency === 'ANUAL' && item.dueMonth !== compMonth) return false;
+          return true;
+        });
+
+        applicable.forEach(rule => {
+          const key = `${client.id}::${rule.code}`;
+          if (existingKeys.has(key)) return;
+
+          const dueDay = Math.min(rule.dueDay || 28, 28);
+          const dueDate = `${compYear}-${String(compMonth).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`;
+
+          toInsert.push({
+            client_id: client.id,
+            code: rule.code,
+            competence,
+            title: rule.name,
+            department: rule.department,
+            due_date: dueDate,
+            status: 'PENDENTE'
+          });
+        });
+      });
+
+      if (toInsert.length > 0) {
+        const { error: insertError } = await sb
+          .from('obligations')
+          .upsert(toInsert, { onConflict: 'client_id,competence,code', ignoreDuplicates: true });
+        if (insertError) throw insertError;
+      }
+
+      const { data: finalRows, error: refetchError } = await sb
+        .from('obligations')
+        .select('*')
+        .eq('competence', competence);
+      if (refetchError) throw refetchError;
+
+      const mapped = (finalRows || []).map(row => this._mapObligationFromDb(row));
+      this._obligations = this._obligations.filter(o => o.competence !== competence).concat(mapped);
+
+      return {
+        competence,
+        totalObligations: mapped,
+        createdCount: toInsert.length
+      };
+    } catch (err) {
+      console.error('Erro ao sincronizar obrigações:', err);
+      window.App?.showToast?.('Não foi possível sincronizar as obrigações do mês.', 'danger');
+      return { competence, totalObligations: this.getFilteredObligations({ competence }), createdCount: 0 };
+    }
+  },
+
+  async updateObligationStatus(id, updateData) {
+    const payload = { ...updateData };
+    const current = this._obligations.find(o => o.id === id);
+
+    if (payload.status === 'CONCLUIDO' && !(current && current.completedAt)) {
+      payload.completed_at = new Date().toISOString();
+      payload.completed_by = window.Auth?.currentUserId() || null;
+    } else if (payload.status !== 'CONCLUIDO') {
+      payload.completed_at = null;
+      payload.completed_by = null;
+    }
+    if ('protocolNumber' in payload) {
+      payload.protocol_number = payload.protocolNumber;
+      delete payload.protocolNumber;
     }
 
-    list[index] = { ...list[index], ...updateData };
-    this.saveAllObligations(list);
-    return list[index];
+    const { data, error } = await sb.from('obligations').update(payload).eq('id', id).select('*').single();
+    if (error) throw error;
+
+    const mapped = this._mapObligationFromDb(data);
+    const idx = this._obligations.findIndex(o => o.id === id);
+    if (idx !== -1) this._obligations[idx] = mapped;
+    else this._obligations.push(mapped);
+
+    return mapped;
+  },
+
+  getAllObligations() {
+    return this._obligations;
   },
 
   getFilteredObligations({ competence, clientId, department, status, taxRegime, search }) {
-    let list = this.getAllObligations();
+    let list = this._obligations;
 
     if (competence) {
       list = list.filter(o => o.competence === competence);
@@ -139,7 +181,7 @@ const ObligationsManager = {
 
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter(o => 
+      list = list.filter(o =>
         (o.clientName && o.clientName.toLowerCase().includes(q)) ||
         (o.title && o.title.toLowerCase().includes(q)) ||
         (o.clientCnpj && o.clientCnpj.includes(q)) ||
@@ -151,7 +193,7 @@ const ObligationsManager = {
   },
 
   getMetrics(competence = this.getCurrentCompetence()) {
-    const list = this.getAllObligations().filter(o => o.competence === competence);
+    const list = this._obligations.filter(o => o.competence === competence);
     const total = list.length;
     const completed = list.filter(o => o.status === 'CONCLUIDO').length;
     const inProgress = list.filter(o => o.status === 'EM_ANDAMENTO').length;

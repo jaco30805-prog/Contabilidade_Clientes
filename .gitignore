@@ -13,6 +13,10 @@
 *.swo
 *~
 
+# Estado local do Netlify CLI (site ID da máquina, não é segredo mas não precisa
+# ser versionado)
+.netlify/
+
 # Logs e temporários
 *.log
 

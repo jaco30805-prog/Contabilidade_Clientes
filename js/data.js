@@ -1,11 +1,24 @@
 /**
  * Voal Consult — ERP & Gestão Contábil
- * Base de Dados Densa e Estruturada com Empresas Reais
+ * Camada de Dados — Supabase (Postgres + RLS), com cache local em memória
+ *
+ * DataStore.init() busca tudo do Supabase uma vez por carregamento de
+ * página e guarda em DataStore._clients. Leituras (getClients,
+ * getClientById) continuam síncronas, lendo desse cache — igual ao
+ * comportamento anterior baseado em localStorage — para não exigir reescrever
+ * toda a renderização em app.js. Escritas (upsertClient, deleteClient,
+ * addInteraction) são assíncronas: gravam no Supabase e só então atualizam
+ * o cache local.
+ *
+ * A proteção dos dados não depende deste arquivo: RLS no banco já nega
+ * qualquer leitura/escrita sem sessão autenticada.
  */
 
 const DataStore = {
-  STORAGE_KEY: 'voal_consult_db_v3',
-  SETTINGS_KEY: 'voal_consult_settings_v3',
+  _clients: [],
+  _profilesById: {},
+  _obligationsCatalog: [],
+  _initialized: false,
 
   TaxRegimes: {
     SIMPLES_NACIONAL: { id: 'SIMPLES_NACIONAL', name: 'Simples Nacional', badge: 'chip-info', color: '#10B981' },
@@ -30,553 +43,429 @@ const DataStore = {
     { id: 'INATIVO', name: 'Inativo', badge: 'chip-danger' }
   ],
 
-  DefaultObligationsCatalog: [
-    {
-      code: 'PGDAS',
-      name: 'PGDAS-D (Apuração Simples Nacional / DAS)',
-      frequency: 'MENSAL',
-      dueDay: 20,
-      department: 'FISCAL',
-      applicableRegimes: ['SIMPLES_NACIONAL'],
-      description: 'Cálculo mensal e emissão da guia única DAS do Simples Nacional.'
-    },
-    {
-      code: 'DCTFWEB',
-      name: 'DCTFWeb (Previdenciária e Retenções)',
-      frequency: 'MENSAL',
-      dueDay: 15,
-      department: 'PESSOAL',
-      applicableRegimes: ['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'IMUNE_ISENTA'],
-      description: 'Confissão de débitos previdenciários e de terceiros integrados ao eSocial.'
-    },
-    {
-      code: 'EFD_REINF',
-      name: 'EFD-Reinf (Retenções e Serviços Tomados)',
-      frequency: 'MENSAL',
-      dueDay: 15,
-      department: 'FISCAL',
-      applicableRegimes: ['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'IMUNE_ISENTA'],
-      description: 'Escrituração de retenções de impostos sobre serviços tomados/prestados.'
-    },
-    {
-      code: 'EFD_CONTRIB',
-      name: 'EFD-Contribuições (PIS/COFINS)',
-      frequency: 'MENSAL',
-      dueDay: 15,
-      department: 'FISCAL',
-      applicableRegimes: ['LUCRO_PRESUMIDO', 'LUCRO_REAL'],
-      description: 'Escrituração Fiscal Digital de PIS/Pasep e COFINS.'
-    },
-    {
-      code: 'SPED_FISCAL',
-      name: 'EFD ICMS IPI (SPED Fiscal)',
-      frequency: 'MENSAL',
-      dueDay: 20,
-      department: 'FISCAL',
-      applicableRegimes: ['LUCRO_PRESUMIDO', 'LUCRO_REAL'],
-      description: 'Escrituração digital de apuração de ICMS e IPI.'
-    },
-    {
-      code: 'FGTS_DIGITAL',
-      name: 'FGTS Digital / Guia Rápida',
-      frequency: 'MENSAL',
-      dueDay: 20,
-      department: 'PESSOAL',
-      applicableRegimes: ['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE_ISENTA'],
-      description: 'Emissão e recolhimento das guias de FGTS mensal.'
-    },
-    {
-      code: 'FOLHA_PROLABORE',
-      name: 'Fechamento de Folha & Pró-Labore (eSocial)',
-      frequency: 'MENSAL',
-      dueDay: 5,
-      department: 'PESSOAL',
-      applicableRegimes: ['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI', 'IMUNE_ISENTA'],
-      description: 'Fechamento de eventos periódicos e emissão de holerites e pró-labore.'
-    }
-  ],
+  CND_TYPES: ['federal', 'estadual', 'municipal', 'fgts', 'trabalhista'],
 
-  getInitialSampleData() {
-    return [
-      {
-        id: 'cli_001',
-        createdAt: '2026-01-10T10:00:00Z',
-        updatedAt: '2026-08-14T14:30:00Z',
-        status: 'ATIVO',
-        type: 'PJ',
-        companyName: 'Restaurante e Churrascaria Sabor Paulista Ltda',
-        tradeName: 'Sabor Paulista Grill',
-        cnpj: '12.345.678/0001-90',
-        cpf: '',
-        stateRegistration: '110.234.567.890',
-        municipalRegistration: '9.876.543-2',
-        taxRegime: 'SIMPLES_NACIONAL',
-        companySize: 'EPP',
-        foundingDate: '2018-03-15',
-        responsibleAccountant: 'Voal Consult',
-        department: 'FISCAL',
-        
-        mainCnae: { code: '56.11-2-01', description: 'Restaurantes e similares' },
-        secondaryCnaes: [
-          { code: '56.11-2-03', description: 'Lanchonetes, casas de chá e sucos' },
-          { code: '56.20-1-04', description: 'Fornecimento de alimentos preparados' }
-        ],
-
-        contactName: 'Ricardo Augusto Silveira',
-        contactRole: 'Sócio-Administrador',
-        phones: ['(11) 3456-7890'],
-        whatsapp: '(11) 98765-4321',
-        email: 'contato@saborpaulista.com.br',
-        financialEmail: 'financeiro@saborpaulista.com.br',
-
-        address: {
-          cep: '01310-100',
-          street: 'Avenida Paulista',
-          number: '1200',
-          complement: 'Térreo e Mezanino',
-          neighborhood: 'Bela Vista',
-          city: 'São Paulo',
-          state: 'SP'
-        },
-
-        partners: [
-          { id: 'p1', name: 'Ricardo Augusto Silveira', cpf: '123.456.789-00', sharePercentage: 60, isAdmin: true, hasProLabore: true, proLaboreValue: 5000 },
-          { id: 'p2', name: 'Mariana Costa Silveira', cpf: '234.567.890-11', sharePercentage: 40, isAdmin: false, hasProLabore: false, proLaboreValue: 0 }
-        ],
-
-        digitalCertificate: { type: 'A1', expirationDate: '2026-09-15', issuer: 'Certisign' },
-        accessKeys: { govBrUser: '123.456.789-00', simplesCode: '876543219012', notes: 'e-CNPJ A1 ativo.' },
-
-        financial: { monthlyFee: 1850.00, dueDay: 10, paymentMethod: 'BOLETO', has13thFee: true, feeNotes: 'Reajuste anual pelo IPCA.' },
-
-        cnds: {
-          federal: { validUntil: '2026-11-20', status: 'valid', notes: 'Sem pendências' },
-          estadual: { validUntil: '2026-10-15', status: 'valid', notes: 'SEFAZ SP regular' },
-          municipal: { validUntil: '2026-08-25', status: 'warning', notes: 'Taxa TFE quitada' },
-          fgts: { validUntil: '2026-09-05', status: 'valid', notes: 'CRF regular' },
-          trabalhista: { validUntil: '2026-12-10', status: 'valid', notes: 'CNDT válida' }
-        },
-
-        interactions: [
-          { id: 'i1', date: '2026-08-08', type: 'ORIENTACAO', user: 'Voal Consult', title: 'Planejamento Tributário Filial', content: 'Simulação de custos para filial em shopping.' }
-        ]
-      },
-      {
-        id: 'cli_002',
-        createdAt: '2025-06-01T08:00:00Z',
-        updatedAt: '2026-08-12T11:00:00Z',
-        status: 'ATIVO',
-        type: 'PJ',
-        companyName: 'TechVanguard Inovações em Software S.A.',
-        tradeName: 'TechVanguard Labs',
-        cnpj: '23.456.789/0001-01',
-        cpf: '',
-        stateRegistration: 'Isento',
-        municipalRegistration: '4.567.890-1',
-        taxRegime: 'LUCRO_PRESUMIDO',
-        companySize: 'MEDIO',
-        foundingDate: '2020-05-18',
-        responsibleAccountant: 'Voal Consult',
-        department: 'CONTABIL',
-
-        mainCnae: { code: '62.01-5-01', description: 'Desenvolvimento de software sob encomenda' },
-        secondaryCnaes: [{ code: '62.02-3-00', description: 'Desenvolvimento e licenciamento de software' }],
-
-        contactName: 'Lucas Ferreira Prado',
-        contactRole: 'Diretor de Operações (COO)',
-        phones: ['(11) 4002-8922'],
-        whatsapp: '(11) 97123-4567',
-        email: 'financeiro@techvanguard.io',
-
-        address: {
-          cep: '04538-133',
-          street: 'Avenida Brigadeiro Faria Lima',
-          number: '3477',
-          complement: '14º Andar',
-          neighborhood: 'Itaim Bibi',
-          city: 'São Paulo',
-          state: 'SP'
-        },
-
-        partners: [
-          { id: 'p3', name: 'Lucas Ferreira Prado', cpf: '345.678.901-22', sharePercentage: 55, isAdmin: true, hasProLabore: true, proLaboreValue: 12000 },
-          { id: 'p4', name: 'Felipe Albuquerque Sato', cpf: '456.789.012-33', sharePercentage: 45, isAdmin: true, hasProLabore: true, proLaboreValue: 12000 }
-        ],
-
-        digitalCertificate: { type: 'A1', expirationDate: '2027-02-28', issuer: 'Serasa Experian' },
-        accessKeys: { govBrUser: '345.678.901-22', simplesCode: '', notes: 'NFS-e Paulistana integrada via WebService.' },
-
-        financial: { monthlyFee: 3400.00, dueDay: 15, paymentMethod: 'PIX', has13thFee: true, feeNotes: 'Inclui folha para 18 desenvolvedores.' },
-
-        cnds: {
-          federal: { validUntil: '2027-01-10', status: 'valid', notes: 'Regular' },
-          estadual: { validUntil: '2026-12-31', status: 'valid', notes: 'Isento ICMS' },
-          municipal: { validUntil: '2026-11-15', status: 'valid', notes: 'NFS-e em dia' },
-          fgts: { validUntil: '2026-09-20', status: 'valid', notes: 'CRF regular' },
-          trabalhista: { validUntil: '2027-01-05', status: 'valid', notes: 'Regular' }
-        },
-
-        interactions: []
-      },
-      {
-        id: 'cli_003',
-        createdAt: '2024-02-15T09:00:00Z',
-        updatedAt: '2026-08-14T09:15:00Z',
-        status: 'ATIVO',
-        type: 'PJ',
-        companyName: 'Metalúrgica & Usinagem Alpha Ltda',
-        tradeName: 'Alpha Metalúrgica',
-        cnpj: '34.567.890/0001-12',
-        cpf: '',
-        stateRegistration: '336.789.012.345',
-        municipalRegistration: '1.234.567-8',
-        taxRegime: 'LUCRO_REAL',
-        companySize: 'MEDIO',
-        foundingDate: '2012-08-20',
-        responsibleAccountant: 'Voal Consult',
-        department: 'FISCAL',
-
-        mainCnae: { code: '25.39-0-01', description: 'Serviços de usinagem e solda' },
-        secondaryCnaes: [],
-
-        contactName: 'Antônio Carlos de Souza',
-        contactRole: 'Diretor Industrial',
-        phones: ['(11) 2233-4455'],
-        whatsapp: '(11) 99111-2233',
-        email: 'diretoria@alphametal.com.br',
-
-        address: {
-          cep: '07222-000',
-          street: 'Estrada Velha de Guarulhos',
-          number: '850',
-          complement: 'Galpão 03',
-          neighborhood: 'Cumbica',
-          city: 'Guarulhos',
-          state: 'SP'
-        },
-
-        partners: [
-          { id: 'p5', name: 'Antônio Carlos de Souza', cpf: '567.890.123-44', sharePercentage: 50, isAdmin: true, hasProLabore: true, proLaboreValue: 8500 },
-          { id: 'p6', name: 'Benedito Souza Filho', cpf: '678.901.234-55', sharePercentage: 50, isAdmin: true, hasProLabore: true, proLaboreValue: 8500 }
-        ],
-
-        digitalCertificate: { type: 'A3', expirationDate: '2026-08-30', issuer: 'Valid Certificadora' },
-        accessKeys: { govBrUser: '567.890.123-44', notes: 'Token físico A3 na empresa.' },
-
-        financial: { monthlyFee: 5200.00, dueDay: 20, paymentMethod: 'TRANSFERENCIA', has13thFee: true, feeNotes: 'Lucro Real com Sped Fiscal e LALUR.' },
-
-        cnds: {
-          federal: { validUntil: '2026-09-30', status: 'valid', notes: 'Parcelamento em dia' },
-          estadual: { validUntil: '2026-08-10', status: 'expired', notes: 'GIA retificadora pendente' },
-          municipal: { validUntil: '2026-12-15', status: 'valid', notes: 'Regular' },
-          fgts: { validUntil: '2026-09-10', status: 'valid', notes: 'CRF regular' },
-          trabalhista: { validUntil: '2026-10-25', status: 'valid', notes: 'Regular' }
-        },
-
-        interactions: []
-      },
-      {
-        id: 'cli_004',
-        createdAt: '2025-01-20T14:00:00Z',
-        updatedAt: '2026-08-05T16:00:00Z',
-        status: 'ATIVO',
-        type: 'PJ',
-        companyName: 'Dr. Roberto Hiroshi Clínica Médica SS',
-        tradeName: 'Clínica Oftalmológica Hiroshi',
-        cnpj: '45.678.901/0001-23',
-        cpf: '',
-        stateRegistration: 'Isento',
-        municipalRegistration: '6.789.012-3',
-        taxRegime: 'LUCRO_PRESUMIDO',
-        companySize: 'EPP',
-        foundingDate: '2019-11-10',
-        responsibleAccountant: 'Voal Consult',
-        department: 'FISCAL',
-
-        mainCnae: { code: '86.30-5-03', description: 'Atividade médica ambulatorial' },
-        secondaryCnaes: [],
-
-        contactName: 'Dra. Beatriz Naomi Hiroshi',
-        contactRole: 'Sócia-Médica',
-        phones: ['(11) 3145-6677'],
-        whatsapp: '(11) 98222-3344',
-        email: 'adm@clinicahiroshi.med.br',
-
-        address: {
-          cep: '01401-000',
-          street: 'Alameda Santos',
-          number: '1800',
-          complement: 'Conjunto 81/82',
-          neighborhood: 'Cerqueira César',
-          city: 'São Paulo',
-          state: 'SP'
-        },
-
-        partners: [
-          { id: 'p7', name: 'Dr. Roberto Hiroshi', cpf: '789.012.345-66', sharePercentage: 50, isAdmin: true, hasProLabore: true, proLaboreValue: 10000 },
-          { id: 'p8', name: 'Dra. Beatriz Naomi Hiroshi', cpf: '890.123.456-77', sharePercentage: 50, isAdmin: true, hasProLabore: true, proLaboreValue: 10000 }
-        ],
-
-        digitalCertificate: { type: 'A1', expirationDate: '2026-12-20', issuer: 'Soluti' },
-        accessKeys: { govBrUser: '789.012.345-66', notes: 'Enquadrada em ISS Uniprofissional (SUP).' },
-
-        financial: { monthlyFee: 2600.00, dueDay: 10, paymentMethod: 'BOLETO', has13thFee: true, feeNotes: 'Inclui Dmed anual.' },
-
-        cnds: {
-          federal: { validUntil: '2027-02-15', status: 'valid', notes: 'Regular' },
-          estadual: { validUntil: '2026-12-31', status: 'valid', notes: 'Isento' },
-          municipal: { validUntil: '2026-11-20', status: 'valid', notes: 'ISS SUP em dia' },
-          fgts: { validUntil: '2026-09-15', status: 'valid', notes: 'CRF regular' },
-          trabalhista: { validUntil: '2027-01-20', status: 'valid', notes: 'Regular' }
-        },
-
-        interactions: []
-      },
-      {
-        id: 'cli_005',
-        createdAt: '2026-03-01T10:00:00Z',
-        updatedAt: '2026-08-02T10:00:00Z',
-        status: 'ATIVO',
-        type: 'PJ',
-        companyName: 'Marcos Vinicius Santos Manutenções MEI',
-        tradeName: 'M.V. Instalações Elétricas',
-        cnpj: '56.789.012/0001-34',
-        cpf: '901.234.567-88',
-        stateRegistration: 'Isento',
-        municipalRegistration: '7.890.123-4',
-        taxRegime: 'MEI',
-        companySize: 'MEI',
-        foundingDate: '2023-04-10',
-        responsibleAccountant: 'Voal Consult',
-        department: 'FISCAL',
-
-        mainCnae: { code: '43.21-5-00', description: 'Instalação e manutenção elétrica' },
-        secondaryCnaes: [],
-
-        contactName: 'Marcos Vinicius Santos',
-        contactRole: 'Titular MEI',
-        phones: ['(11) 97777-8888'],
-        whatsapp: '(11) 97777-8888',
-        email: 'marcos.eletrica@gmail.com',
-
-        address: {
-          cep: '03001-000',
-          street: 'Rua do Gasômetro',
-          number: '350',
-          complement: 'Apto 42',
-          neighborhood: 'Brás',
-          city: 'São Paulo',
-          state: 'SP'
-        },
-
-        partners: [
-          { id: 'p9', name: 'Marcos Vinicius Santos', cpf: '901.234.567-88', sharePercentage: 100, isAdmin: true, hasProLabore: false, proLaboreValue: 0 }
-        ],
-
-        digitalCertificate: { type: 'A1', expirationDate: '2027-04-15', issuer: 'Serpro' },
-        accessKeys: { govBrUser: '901.234.567-88', simplesCode: '112233445566', notes: 'NFS-e Portal Nacional.' },
-
-        financial: { monthlyFee: 250.00, dueDay: 5, paymentMethod: 'PIX', has13thFee: false, feeNotes: 'Emissão mensal do DAS-SIMEI.' },
-
-        cnds: {
-          federal: { validUntil: '2026-10-30', status: 'valid', notes: 'DAS em dia' },
-          estadual: { validUntil: '2026-12-31', status: 'valid', notes: 'Isento' },
-          municipal: { validUntil: '2026-10-15', status: 'valid', notes: 'CCM regular' },
-          fgts: { validUntil: '2026-09-30', status: 'valid', notes: 'Sem empregados' },
-          trabalhista: { validUntil: '2026-11-20', status: 'valid', notes: 'Regular' }
-        },
-
-        interactions: []
-      },
-      {
-        id: 'cli_006',
-        createdAt: '2026-07-01T15:00:00Z',
-        updatedAt: '2026-08-14T11:00:00Z',
-        status: 'ATIVO',
-        type: 'PJ',
-        companyName: 'Studio Zen Estética e Bem Estar Ltda',
-        tradeName: 'Studio Zen',
-        cnpj: '67.890.123/0001-45',
-        cpf: '',
-        stateRegistration: 'Isento',
-        municipalRegistration: '8.901.234-5',
-        taxRegime: 'SIMPLES_NACIONAL',
-        companySize: 'ME',
-        foundingDate: '2026-06-25',
-        responsibleAccountant: 'Voal Consult',
-        department: 'GERAL',
-
-        mainCnae: { code: '96.02-5-02', description: 'Atividades de estética e beleza' },
-        secondaryCnaes: [],
-
-        contactName: 'Camila Peixoto Rossi',
-        contactRole: 'Sócia Proprietária',
-        phones: ['(11) 98999-0011'],
-        whatsapp: '(11) 98999-0011',
-        email: 'adm@studiozen.com.br',
-
-        address: {
-          cep: '04080-001',
-          street: 'Avenida Rouxinol',
-          number: '520',
-          complement: 'Casa 02',
-          neighborhood: 'Moema',
-          city: 'São Paulo',
-          state: 'SP'
-        },
-
-        partners: [
-          { id: 'p10', name: 'Camila Peixoto Rossi', cpf: '012.345.678-99', sharePercentage: 100, isAdmin: true, hasProLabore: true, proLaboreValue: 3000 }
-        ],
-
-        digitalCertificate: { type: 'A1', expirationDate: '2027-07-01', issuer: 'Certisign' },
-        accessKeys: { govBrUser: '012.345.678-99', simplesCode: '998877665544', notes: 'Alvará sanitário deferido.' },
-
-        financial: { monthlyFee: 1200.00, dueDay: 15, paymentMethod: 'BOLETO', has13thFee: true, feeNotes: 'Assessoria contábil mensal.' },
-
-        cnds: {
-          federal: { validUntil: '2027-01-15', status: 'valid', notes: 'Empresa nova' },
-          estadual: { validUntil: '2026-12-31', status: 'valid', notes: 'Isento' },
-          municipal: { validUntil: '2026-12-31', status: 'valid', notes: 'Em dia' },
-          fgts: { validUntil: '2026-10-01', status: 'valid', notes: 'CRF emitido' },
-          trabalhista: { validUntil: '2027-01-10', status: 'valid', notes: 'Regular' }
-        },
-
-        interactions: []
-      }
-    ];
+  // Mantido por compatibilidade — o catálogo "de verdade" agora mora na
+  // tabela obligations_catalog e é carregado em init(). Este getter expõe o
+  // que foi carregado, no mesmo formato que o código antigo esperava.
+  get DefaultObligationsCatalog() {
+    return this._obligationsCatalog;
   },
 
-  init() {
-    const rawData = localStorage.getItem(this.STORAGE_KEY);
-    if (!rawData) {
-      const initial = this.getInitialSampleData();
-      this.saveClients(initial);
-      return initial;
-    }
+  // =========================================================================
+  // INICIALIZAÇÃO — busca tudo do Supabase e monta o cache em memória
+  // =========================================================================
+  async init() {
     try {
-      const parsed = JSON.parse(rawData);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        const initial = this.getInitialSampleData();
-        this.saveClients(initial);
-        return initial;
-      }
-      return parsed;
-    } catch (e) {
-      const initial = this.getInitialSampleData();
-      this.saveClients(initial);
-      return initial;
+      const [clientsRes, profilesRes, catalogRes] = await Promise.all([
+        sb.from('clients').select(`
+          *,
+          client_secondary_cnaes(*),
+          client_addresses(*),
+          client_partners(*),
+          client_digital_certificates(*),
+          client_financial(*),
+          client_cnds(*),
+          client_interactions(*)
+        `).order('company_name', { ascending: true }),
+        sb.from('profiles').select('*'),
+        sb.from('obligations_catalog').select('*').eq('active', true)
+      ]);
+
+      if (clientsRes.error) throw clientsRes.error;
+      if (profilesRes.error) throw profilesRes.error;
+      if (catalogRes.error) throw catalogRes.error;
+
+      this._profilesById = {};
+      (profilesRes.data || []).forEach(p => { this._profilesById[p.id] = p; });
+
+      this._obligationsCatalog = (catalogRes.data || []).map(row => ({
+        code: row.code,
+        name: row.name,
+        frequency: row.frequency,
+        dueDay: row.due_day,
+        dueMonth: row.due_month,
+        department: row.department,
+        applicableRegimes: row.applicable_regimes || [],
+        description: row.description
+      }));
+
+      this._clients = (clientsRes.data || []).map(row => this._mapClientFromDb(row));
+      this._initialized = true;
+      return this._clients;
+    } catch (err) {
+      console.error('Erro ao carregar dados do Supabase:', err);
+      window.App?.showToast?.('Não foi possível carregar os dados. Verifique sua conexão.', 'danger');
+      this._clients = this._clients || [];
+      return this._clients;
     }
   },
 
+  // =========================================================================
+  // MAPEAMENTO: linhas do banco (snake_case, normalizado) -> objeto do app
+  // (camelCase, aninhado) — mesmo formato usado em toda a renderização.
+  // =========================================================================
+  _mapClientFromDb(row) {
+    const addresses = row.client_addresses || [];
+    const currentAddress = addresses.find(a => a.is_current) || addresses[0] || {};
+
+    const financialRaw = Array.isArray(row.client_financial) ? row.client_financial[0] : row.client_financial;
+    const fin = financialRaw || {};
+
+    const certs = row.client_digital_certificates || [];
+    const cert = [...certs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || {};
+
+    const cndsByType = {};
+    (row.client_cnds || []).forEach(c => {
+      cndsByType[c.tipo] = {
+        validUntil: c.valid_until || '',
+        status: c.status,
+        notes: c.notes || '',
+        source: c.source
+      };
+    });
+
+    const interactions = (row.client_interactions || [])
+      .map(i => ({
+        id: i.id,
+        date: i.occurred_on,
+        type: i.type,
+        title: i.title,
+        content: i.content,
+        user: this._profilesById[i.created_by]?.full_name || 'Voal Consult'
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return {
+      id: row.id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      status: row.status,
+      type: row.type,
+      companyName: row.company_name,
+      tradeName: row.trade_name || '',
+      cnpj: row.cnpj || '',
+      cpf: row.cpf || '',
+      stateRegistration: row.state_registration || '',
+      municipalRegistration: row.municipal_registration || '',
+      taxRegime: row.tax_regime,
+      companySize: row.company_size || '',
+      foundingDate: row.founding_date || '',
+      responsibleAccountant: row.responsible_accountant || '',
+      department: row.department || '',
+
+      mainCnae: { code: row.main_cnae_code || '', description: row.main_cnae_description || '' },
+      secondaryCnaes: (row.client_secondary_cnaes || []).map(c => ({ code: c.code, description: c.description })),
+
+      contactName: row.contact_name || '',
+      contactRole: row.contact_role || '',
+      phones: row.phones || [],
+      whatsapp: row.whatsapp || '',
+      email: row.email || '',
+      financialEmail: row.financial_email || '',
+
+      address: {
+        cep: currentAddress.cep || '',
+        street: currentAddress.street || '',
+        number: currentAddress.number || '',
+        complement: currentAddress.complement || '',
+        neighborhood: currentAddress.neighborhood || '',
+        city: currentAddress.city || '',
+        state: currentAddress.state || ''
+      },
+
+      partners: (row.client_partners || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        cpf: p.cpf || '',
+        sharePercentage: p.share_percentage || 0,
+        isAdmin: p.is_admin,
+        hasProLabore: p.has_pro_labore,
+        proLaboreValue: p.pro_labore_value || 0
+      })),
+
+      digitalCertificate: {
+        type: cert.type || '',
+        expirationDate: cert.expiration_date || '',
+        issuer: cert.issuer || ''
+      },
+      accessKeys: {
+        govBrUser: row.gov_br_user || '',
+        simplesCode: row.simples_code || '',
+        notes: row.access_notes || ''
+      },
+
+      financial: {
+        monthlyFee: fin.monthly_fee || 0,
+        dueDay: fin.due_day || 10,
+        paymentMethod: fin.payment_method || 'BOLETO',
+        has13thFee: !!fin.has_13th_fee,
+        feeNotes: fin.fee_notes || ''
+      },
+
+      cnds: cndsByType,
+      interactions
+    };
+  },
+
+  // =========================================================================
+  // LEITURA (síncrona, a partir do cache já carregado por init())
+  // =========================================================================
   getClients() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      return raw ? JSON.parse(raw) : this.init();
-    } catch (e) {
-      return this.init();
-    }
-  },
-
-  saveClients(clients) {
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(clients));
+    return this._clients;
   },
 
   getClientById(id) {
-    const clients = this.getClients();
-    return clients.find(c => c.id === id) || null;
+    return this._clients.find(c => c.id === id) || null;
   },
 
-  upsertClient(clientData) {
-    const clients = this.getClients();
-    const now = new Date().toISOString();
+  // =========================================================================
+  // ESCRITA
+  // =========================================================================
+  async upsertClient(clientData) {
+    const isNew = !clientData.id;
 
-    if (!clientData.id) {
-      clientData.id = 'cli_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-      clientData.createdAt = now;
-      clientData.updatedAt = now;
-      if (!clientData.interactions) clientData.interactions = [];
-      if (!clientData.partners) clientData.partners = [];
-      if (!clientData.cnds) {
-        clientData.cnds = {
-          federal: { validUntil: '', status: 'none', notes: '' },
-          estadual: { validUntil: '', status: 'none', notes: '' },
-          municipal: { validUntil: '', status: 'none', notes: '' },
-          fgts: { validUntil: '', status: 'none', notes: '' },
-          trabalhista: { validUntil: '', status: 'none', notes: '' }
-        };
-      }
-      clients.unshift(clientData);
+    const clientRow = {
+      status: clientData.status || 'ATIVO',
+      company_name: clientData.companyName,
+      trade_name: clientData.tradeName || null,
+      cnpj: clientData.cnpj || null,
+      cpf: clientData.cpf || null,
+      state_registration: clientData.stateRegistration || null,
+      municipal_registration: clientData.municipalRegistration || null,
+      tax_regime: clientData.taxRegime,
+      company_size: clientData.companySize || null,
+      founding_date: clientData.foundingDate || null,
+      responsible_accountant: clientData.responsibleAccountant || null,
+      department: clientData.department || null,
+      main_cnae_code: clientData.mainCnae?.code || null,
+      main_cnae_description: clientData.mainCnae?.description || null,
+      contact_name: clientData.contactName || null,
+      contact_role: clientData.contactRole || null,
+      phones: clientData.phones || [],
+      whatsapp: clientData.whatsapp || null,
+      email: clientData.email || null,
+      financial_email: clientData.financialEmail || null,
+      gov_br_user: clientData.accessKeys?.govBrUser || null,
+      simples_code: clientData.accessKeys?.simplesCode || null,
+      access_notes: clientData.accessKeys?.notes || null
+    };
+
+    let clientId = clientData.id;
+
+    if (isNew) {
+      const { data, error } = await sb.from('clients').insert(clientRow).select('id').single();
+      if (error) throw error;
+      clientId = data.id;
     } else {
-      const index = clients.findIndex(c => c.id === clientData.id);
-      if (index !== -1) {
-        clientData.updatedAt = now;
-        if (!clientData.interactions && clients[index].interactions) {
-          clientData.interactions = clients[index].interactions;
-        }
-        clients[index] = { ...clients[index], ...clientData };
-      } else {
-        clientData.createdAt = now;
-        clientData.updatedAt = now;
-        clients.unshift(clientData);
+      const { error } = await sb.from('clients').update(clientRow).eq('id', clientId);
+      if (error) throw error;
+    }
+
+    // Honorários (1 linha por cliente)
+    if (clientData.financial) {
+      const { error } = await sb.from('client_financial').upsert({
+        client_id: clientId,
+        monthly_fee: clientData.financial.monthlyFee || 0,
+        due_day: clientData.financial.dueDay || null,
+        payment_method: clientData.financial.paymentMethod || null,
+        has_13th_fee: !!clientData.financial.has13thFee,
+        fee_notes: clientData.financial.feeNotes || null
+      }, { onConflict: 'client_id' });
+      if (error) throw error;
+    }
+
+    // Certificado digital — substitui a linha vigente (o app só mantém "o certificado atual")
+    if (clientData.digitalCertificate && (clientData.digitalCertificate.type || clientData.digitalCertificate.expirationDate)) {
+      await sb.from('client_digital_certificates').delete().eq('client_id', clientId);
+      const { error } = await sb.from('client_digital_certificates').insert({
+        client_id: clientId,
+        type: clientData.digitalCertificate.type || null,
+        issuer: clientData.digitalCertificate.issuer || null,
+        expiration_date: clientData.digitalCertificate.expirationDate || null
+      });
+      if (error) throw error;
+    }
+
+    // Sócios — substitui a lista inteira (o formulário sempre envia o QSA completo)
+    if (clientData.partners) {
+      await sb.from('client_partners').delete().eq('client_id', clientId);
+      const rows = clientData.partners.filter(p => p.name).map(p => ({
+        client_id: clientId,
+        name: p.name,
+        cpf: p.cpf || null,
+        share_percentage: p.sharePercentage || 0,
+        is_admin: !!p.isAdmin,
+        has_pro_labore: !!p.hasProLabore,
+        pro_labore_value: p.proLaboreValue || 0
+      }));
+      if (rows.length > 0) {
+        const { error } = await sb.from('client_partners').insert(rows);
+        if (error) throw error;
       }
     }
 
-    this.saveClients(clients);
-    return clientData;
+    // Endereço — só cria uma nova versão "atual" se cidade/UF mudou (o que
+    // de fato importa para saber qual adapter municipal/estadual usar depois).
+    // Ajustes de rua/número/CEP no mesmo município atualizam a linha vigente.
+    if (clientData.address) {
+      await this._upsertAddress(clientId, clientData.address);
+    }
+
+    // Cliente novo: garante as 5 linhas de CND (pendentes de preenchimento)
+    if (isNew) {
+      const cndRows = this.CND_TYPES.map(tipo => ({ client_id: clientId, tipo }));
+      const { error } = await sb.from('client_cnds').insert(cndRows);
+      if (error) throw error;
+    }
+
+    await this._refetchClient(clientId);
+    return this.getClientById(clientId);
   },
 
-  deleteClient(id) {
-    const clients = this.getClients();
-    const filtered = clients.filter(c => c.id !== id);
-    this.saveClients(filtered);
-    return filtered;
+  async _upsertAddress(clientId, address) {
+    const { data: current } = await sb
+      .from('client_addresses')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('is_current', true)
+      .maybeSingle();
+
+    const hasAnyValue = address.city || address.street || address.cep;
+    if (!hasAnyValue) return;
+
+    if (!current) {
+      const { error } = await sb.from('client_addresses').insert({
+        client_id: clientId,
+        cep: address.cep || null,
+        street: address.street || null,
+        number: address.number || null,
+        complement: address.complement || null,
+        neighborhood: address.neighborhood || null,
+        city: address.city || '',
+        state: address.state || '',
+        is_current: true
+      });
+      if (error) throw error;
+      return;
+    }
+
+    const cityChanged = (current.city || '') !== (address.city || '');
+    const stateChanged = (current.state || '') !== (address.state || '');
+
+    if (cityChanged || stateChanged) {
+      // Nova linha "atual" — o trigger do banco fecha a anterior automaticamente
+      // preenchendo effective_to, preservando o histórico do endereço antigo.
+      const { error } = await sb.from('client_addresses').insert({
+        client_id: clientId,
+        cep: address.cep || null,
+        street: address.street || null,
+        number: address.number || null,
+        complement: address.complement || null,
+        neighborhood: address.neighborhood || null,
+        city: address.city || '',
+        state: address.state || '',
+        is_current: true
+      });
+      if (error) throw error;
+    } else {
+      const { error } = await sb.from('client_addresses').update({
+        cep: address.cep || null,
+        street: address.street || null,
+        number: address.number || null,
+        complement: address.complement || null,
+        neighborhood: address.neighborhood || null
+      }).eq('id', current.id);
+      if (error) throw error;
+    }
   },
 
-  addInteraction(clientId, interaction) {
-    const client = this.getClientById(clientId);
-    if (!client) return false;
-    
-    if (!client.interactions) client.interactions = [];
-    interaction.id = 'int_' + Date.now();
-    interaction.date = interaction.date || new Date().toISOString().split('T')[0];
-    
-    client.interactions.unshift(interaction);
-    this.upsertClient(client);
-    return true;
+  async deleteClient(id) {
+    const { error } = await sb.from('clients').delete().eq('id', id);
+    if (error) throw error;
+    this._clients = this._clients.filter(c => c.id !== id);
   },
 
-  resetToSampleData() {
-    const initial = this.getInitialSampleData();
-    this.saveClients(initial);
-    localStorage.removeItem(ObligationsManager.STORAGE_KEY);
-    return initial;
+  async addInteraction(clientId, interaction) {
+    const { error } = await sb.from('client_interactions').insert({
+      client_id: clientId,
+      occurred_on: interaction.date || new Date().toISOString().split('T')[0],
+      type: interaction.type || null,
+      title: interaction.title,
+      content: interaction.content || null,
+      created_by: window.Auth?.currentUserId() || null
+    });
+    if (error) throw error;
+    await this._refetchClient(clientId);
   },
 
+  // Atualiza as 5 certidões de um cliente (matriz de CNDs)
+  async updateClientCnds(clientId, cndsByType) {
+    const rows = Object.entries(cndsByType).map(([tipo, info]) => ({
+      client_id: clientId,
+      tipo,
+      valid_until: info.validUntil || null,
+      status: info.status || 'none',
+      source: 'manual'
+    }));
+    const { error } = await sb.from('client_cnds').upsert(rows, { onConflict: 'client_id,tipo' });
+    if (error) throw error;
+    await this._refetchClient(clientId);
+  },
+
+  async _refetchClient(clientId) {
+    const { data, error } = await sb.from('clients').select(`
+      *,
+      client_secondary_cnaes(*),
+      client_addresses(*),
+      client_partners(*),
+      client_digital_certificates(*),
+      client_financial(*),
+      client_cnds(*),
+      client_interactions(*)
+    `).eq('id', clientId).single();
+
+    if (error) {
+      console.error('Erro ao recarregar cliente:', error);
+      return;
+    }
+
+    const mapped = this._mapClientFromDb(data);
+    const idx = this._clients.findIndex(c => c.id === clientId);
+    if (idx === -1) {
+      this._clients.unshift(mapped);
+    } else {
+      this._clients[idx] = mapped;
+    }
+  },
+
+  // =========================================================================
+  // BACKUP / EXPORTAÇÃO — trabalham em cima do cache já carregado
+  // =========================================================================
   exportJSON() {
-    const clients = this.getClients();
-    const obligations = localStorage.getItem(ObligationsManager.STORAGE_KEY) || '[]';
+    const obligations = window.ObligationsManager ? window.ObligationsManager.getAllObligations() : [];
     const backup = {
-      version: '3.0.0',
+      version: '4.0.0',
       exportedAt: new Date().toISOString(),
-      system: 'Voal Consult ERP',
-      clients,
-      obligations: JSON.parse(obligations)
+      system: 'Voal Consult ERP (Supabase)',
+      clients: this._clients,
+      obligations
     };
     return JSON.stringify(backup, null, 2);
   },
 
-  importJSON(jsonString) {
+  async importJSON(jsonString) {
     try {
       const data = JSON.parse(jsonString);
       if (!data.clients || !Array.isArray(data.clients)) {
         throw new Error('Arquivo de backup inválido.');
       }
-      this.saveClients(data.clients);
-      if (data.obligations) {
-        localStorage.setItem(ObligationsManager.STORAGE_KEY, JSON.stringify(data.obligations));
+      let count = 0;
+      for (const client of data.clients) {
+        await this.upsertClient({ ...client, id: null }); // sempre cria — evita sobrescrever IDs de outro banco
+        count++;
       }
-      return { success: true, count: data.clients.length };
+      return { success: true, count };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -609,7 +498,7 @@ const DataStore = {
       c.digitalCertificate?.expirationDate || ''
     ]);
 
-    return '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+    return '﻿' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
   }
 };
 

@@ -3,9 +3,13 @@
  * Aplicação Principal SPA (Tema Claro Minimalista & 100% em Português PT-BR)
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-  DataStore.init();
-  ObligationsManager.syncCompetenceObligations();
+document.addEventListener('DOMContentLoaded', async () => {
+  const authOk = await Auth.init();
+  if (!authOk) return; // sem sessão — Auth já redirecionou para login.html
+  window.Sidebar?.applyAuthenticatedUser();
+
+  await DataStore.init();
+  await ObligationsManager.syncCompetenceObligations();
   App.init();
 });
 
@@ -106,9 +110,9 @@ const App = {
     }
     selector.innerHTML = html;
 
-    selector.addEventListener('change', (e) => {
+    selector.addEventListener('change', async (e) => {
       this.selectedCompetence = e.target.value;
-      ObligationsManager.syncCompetenceObligations(this.selectedCompetence);
+      await ObligationsManager.syncCompetenceObligations(this.selectedCompetence);
       if (this.currentPage === 'conformidade') this.renderObligationsView();
       if (this.currentPage === 'dashboard') this.renderDashboard();
     });
@@ -182,41 +186,8 @@ const App = {
 
     if (allInteractions.length === 0) {
       container.innerHTML = `
-        <div class="activity-item">
-          <div class="activity-icon-bullet success">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="activity-content">
-            <div class="activity-text">PGDAS-D e Guia DAS transmitidos para Sabor Paulista Grill</div>
-            <div class="activity-time">Há 5 minutos &bull; Voal Consult</div>
-          </div>
-        </div>
-        <div class="activity-item">
-          <div class="activity-icon-bullet success">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="activity-content">
-            <div class="activity-text">Honorário mensal compensado de TechVanguard Labs — R$ 3.400,00</div>
-            <div class="activity-time">Há 25 minutos &bull; Setor Financeiro</div>
-          </div>
-        </div>
-        <div class="activity-item">
-          <div class="activity-icon-bullet warning">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <div class="activity-content">
-            <div class="activity-text">Alerta: Certificado Digital A3 de Alpha Metalúrgica vence em 16 dias</div>
-            <div class="activity-time">Hoje às 11:30 &bull; Compliance Fiscal</div>
-          </div>
-        </div>
-        <div class="activity-item">
-          <div class="activity-icon-bullet success">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="activity-content">
-            <div class="activity-text">Fechamento de Folha & eSocial transmitido com recibo oficial</div>
-            <div class="activity-time">Hoje às 09:15 &bull; Departamento Pessoal</div>
-          </div>
+        <div style="text-align:center; padding: 24px 12px; color:var(--text-muted); font-size:0.85rem;">
+          Nenhum atendimento registrado ainda. Os últimos atendimentos de qualquer cliente aparecem aqui.
         </div>
       `;
       return;
@@ -720,14 +691,19 @@ const App = {
   // =========================================================================
   // VIEW: CONFIGURAÇÕES & BACKUP
   // =========================================================================
-  renderReportsView() {
+  async renderReportsView() {
     // Painel "Versão do Sistema": números reais em vez de contagens fixas
     const clients = DataStore.getClients();
     const elClientCount = document.getElementById('sys-stat-clients');
     if (elClientCount) elClientCount.textContent = clients.length;
 
     const elObligationsCount = document.getElementById('sys-stat-obligations');
-    if (elObligationsCount) elObligationsCount.textContent = ObligationsManager.getAllObligations().length;
+    if (elObligationsCount) {
+      // Conta o total real no banco (o cache local só tem as competências
+      // já sincronizadas nesta sessão de página).
+      const { count } = await sb.from('obligations').select('*', { count: 'exact', head: true });
+      elObligationsCount.textContent = count ?? ObligationsManager.getAllObligations().length;
+    }
 
     // Certificados Digitais: tabela vem da carteira real de clientes
     const certTbody = document.getElementById('certificates-table-tbody');
@@ -774,9 +750,14 @@ const App = {
       inputImportJSON.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        if (!confirm('Isso vai CRIAR novamente cada cliente do backup como um cadastro novo (não sobrescreve os existentes). Deseja continuar?')) {
+          inputImportJSON.value = '';
+          return;
+        }
         const reader = new FileReader();
-        reader.onload = (ev) => {
-          const res = DataStore.importJSON(ev.target.result);
+        reader.onload = async (ev) => {
+          this.showToast('Restaurando backup, aguarde...', 'info');
+          const res = await DataStore.importJSON(ev.target.result);
           if (res.success) {
             this.showToast(`${res.count} clientes restaurados com sucesso!`, 'success');
             setTimeout(() => { window.location.href = 'clientes.html'; }, 800);
@@ -785,18 +766,6 @@ const App = {
           }
         };
         reader.readAsText(file);
-      };
-    }
-
-    const btnResetSample = document.getElementById('btn-reset-sample');
-    if (btnResetSample) {
-      btnResetSample.onclick = () => {
-        if (confirm('Deseja recarregar a base de demonstração da Voal Consult?')) {
-          DataStore.resetToSampleData();
-          ObligationsManager.syncCompetenceObligations();
-          this.showToast('Dados demonstrativos restaurados!', 'success');
-          setTimeout(() => { window.location.href = 'index.html'; }, 800);
-        }
       };
     }
   },
@@ -930,9 +899,10 @@ const App = {
     container.appendChild(div);
   },
 
-  saveClientForm(e) {
+  async saveClientForm(e) {
     e.preventDefault();
     const clientId = document.getElementById('client-form-id').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
 
     const partners = [];
     document.querySelectorAll('#form-partners-list > div').forEach(box => {
@@ -1006,29 +976,42 @@ const App = {
       }
     };
 
-    const saved = DataStore.upsertClient(clientData);
-    ObligationsManager.syncCompetenceObligations();
-    this.closeAllModals();
-    this.showToast(`Cliente ${saved.companyName || 'salvo'} com sucesso!`, 'success');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando...'; }
 
-    if (this.currentPage === 'dossie' && this.selectedClientId === saved.id) {
-      this.renderClientDetail(saved.id);
-    } else if (this.currentPage === 'clientes') {
-      this.renderClientsList();
-    } else {
-      window.location.href = 'clientes.html';
+    try {
+      const saved = await DataStore.upsertClient(clientData);
+      await ObligationsManager.syncCompetenceObligations(this.selectedCompetence);
+      this.closeAllModals();
+      this.showToast(`Cliente ${saved.companyName || 'salvo'} com sucesso!`, 'success');
+
+      if (this.currentPage === 'dossie' && this.selectedClientId === saved.id) {
+        this.renderClientDetail(saved.id);
+      } else if (this.currentPage === 'clientes') {
+        this.renderClientsList();
+      } else {
+        window.location.href = 'clientes.html';
+      }
+    } catch (err) {
+      console.error('Erro ao salvar cliente:', err);
+      this.showToast('Erro ao salvar cliente. Tente novamente.', 'danger');
+    } finally {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Cadastro'; }
     }
   },
 
-  confirmDeleteClient(id, name) {
-    if (confirm(`Tem certeza que deseja excluir o cliente "${name}" da carteira?`)) {
-      DataStore.deleteClient(id);
+  async confirmDeleteClient(id, name) {
+    if (!confirm(`Tem certeza que deseja excluir o cliente "${name}" da carteira?`)) return;
+    try {
+      await DataStore.deleteClient(id);
       this.showToast('Cliente excluído com sucesso.', 'danger');
       if (this.currentPage === 'clientes') {
         this.renderClientsList();
       } else {
         window.location.href = 'clientes.html';
       }
+    } catch (err) {
+      console.error('Erro ao excluir cliente:', err);
+      this.showToast('Erro ao excluir cliente. Tente novamente.', 'danger');
     }
   },
 
@@ -1044,25 +1027,29 @@ const App = {
     modal.classList.add('active');
   },
 
-  saveInteractionForm(e) {
+  async saveInteractionForm(e) {
     e.preventDefault();
     const clientId = document.getElementById('inter-client-id').value;
     const interaction = {
       type: document.getElementById('inter-type').value,
       date: document.getElementById('inter-date').value,
-      user: 'Voal Consult',
       title: document.getElementById('inter-title').value.trim(),
       content: document.getElementById('inter-content').value.trim()
     };
 
-    DataStore.addInteraction(clientId, interaction);
-    this.closeAllModals();
-    this.showToast('Atendimento registrado com sucesso!', 'success');
+    try {
+      await DataStore.addInteraction(clientId, interaction);
+      this.closeAllModals();
+      this.showToast('Atendimento registrado com sucesso!', 'success');
 
-    if (this.currentPage === 'dossie' && this.selectedClientId === clientId) {
-      this.renderClientDetail(clientId);
-    } else if (this.currentPage === 'dashboard') {
-      this.renderDashboard();
+      if (this.currentPage === 'dossie' && this.selectedClientId === clientId) {
+        this.renderClientDetail(clientId);
+      } else if (this.currentPage === 'dashboard') {
+        this.renderDashboard();
+      }
+    } catch (err) {
+      console.error('Erro ao registrar atendimento:', err);
+      this.showToast('Erro ao registrar atendimento. Tente novamente.', 'danger');
     }
   },
 
@@ -1081,18 +1068,23 @@ const App = {
     modal.classList.add('active');
   },
 
-  saveObligationAction(e) {
+  async saveObligationAction(e) {
     e.preventDefault();
     const id = document.getElementById('ob-action-id').value;
     const status = document.getElementById('ob-action-status').value;
     const protocolNumber = document.getElementById('ob-action-protocol').value.trim();
 
-    ObligationsManager.updateObligationStatus(id, { status, protocolNumber });
-    this.closeAllModals();
-    this.showToast('Status da obrigação atualizado com sucesso!', 'success');
+    try {
+      await ObligationsManager.updateObligationStatus(id, { status, protocolNumber });
+      this.closeAllModals();
+      this.showToast('Status da obrigação atualizado com sucesso!', 'success');
 
-    if (this.currentPage === 'conformidade') this.renderObligationsView();
-    if (this.currentPage === 'dashboard') this.renderDashboard();
+      if (this.currentPage === 'conformidade') this.renderObligationsView();
+      if (this.currentPage === 'dashboard') this.renderDashboard();
+    } catch (err) {
+      console.error('Erro ao atualizar obrigação:', err);
+      this.showToast('Erro ao atualizar obrigação. Tente novamente.', 'danger');
+    }
   },
 
   openCNDEditModal(clientId) {
@@ -1114,28 +1106,32 @@ const App = {
     modal.classList.add('active');
   },
 
-  saveCNDEdit(e) {
+  async saveCNDEdit(e) {
     e.preventDefault();
     const clientId = document.getElementById('cnd-edit-client-id').value;
     const client = DataStore.getClientById(clientId);
     if (!client) return;
 
-    if (!client.cnds) client.cnds = {};
-
+    const cndsByType = {};
     ['federal', 'estadual', 'municipal', 'fgts', 'trabalhista'].forEach(k => {
       const val = document.getElementById(`cnd-edit-${k}`)?.value || '';
-      client.cnds[k] = {
+      cndsByType[k] = {
         validUntil: val,
         status: val ? Validators.getExpirationStatus(val).status : 'none'
       };
     });
 
-    DataStore.upsertClient(client);
-    this.closeAllModals();
-    this.showToast('Validades das certidões atualizadas com sucesso!', 'success');
+    try {
+      await DataStore.updateClientCnds(clientId, cndsByType);
+      this.closeAllModals();
+      this.showToast('Validades das certidões atualizadas com sucesso!', 'success');
 
-    if (this.currentPage === 'cnds') this.renderCNDsView();
-    if (this.currentPage === 'dossie' && this.selectedClientId === clientId) this.renderClientDetail(clientId);
+      if (this.currentPage === 'cnds') this.renderCNDsView();
+      if (this.currentPage === 'dossie' && this.selectedClientId === clientId) this.renderClientDetail(clientId);
+    } catch (err) {
+      console.error('Erro ao atualizar certidões:', err);
+      this.showToast('Erro ao atualizar certidões. Tente novamente.', 'danger');
+    }
   },
 
   closeAllModals() {
