@@ -20,6 +20,7 @@ const DataStore = {
   _obligationsCatalog: [],
   _avulsoCatalog: [],
   _avulsoRequests: [],
+  _leads: [],
   _initialized: false,
 
   TaxRegimes: {
@@ -59,7 +60,7 @@ const DataStore = {
   // =========================================================================
   async init() {
     try {
-      const [clientsRes, profilesRes, catalogRes, avulsoCatalogRes, avulsoRequestsRes] = await Promise.all([
+      const [clientsRes, profilesRes, catalogRes, avulsoCatalogRes, avulsoRequestsRes, leadsRes] = await Promise.all([
         sb.from('clients').select(`
           *,
           client_secondary_cnaes(*),
@@ -73,7 +74,8 @@ const DataStore = {
         sb.from('profiles').select('*'),
         sb.from('obligations_catalog').select('*').eq('active', true),
         sb.from('avulso_service_catalog').select('*').eq('ativo', true).order('modulo').order('ordem'),
-        sb.from('avulso_service_requests').select('*').order('created_at', { ascending: false })
+        sb.from('avulso_service_requests').select('*').order('created_at', { ascending: false }),
+        sb.from('leads').select('*').order('created_at', { ascending: false })
       ]);
 
       if (clientsRes.error) throw clientsRes.error;
@@ -81,6 +83,7 @@ const DataStore = {
       if (catalogRes.error) throw catalogRes.error;
       if (avulsoCatalogRes.error) throw avulsoCatalogRes.error;
       if (avulsoRequestsRes.error) throw avulsoRequestsRes.error;
+      if (leadsRes.error) throw leadsRes.error;
 
       this._profilesById = {};
       (profilesRes.data || []).forEach(p => { this._profilesById[p.id] = p; });
@@ -98,6 +101,7 @@ const DataStore = {
 
       this._avulsoCatalog = (avulsoCatalogRes.data || []).map(row => this._mapAvulsoCatalogFromDb(row));
       this._avulsoRequests = (avulsoRequestsRes.data || []).map(row => this._mapAvulsoRequestFromDb(row));
+      this._leads = (leadsRes.data || []).map(row => this._mapLeadFromDb(row));
 
       this._clients = (clientsRes.data || []).map(row => this._mapClientFromDb(row));
       this._initialized = true;
@@ -562,6 +566,75 @@ const DataStore = {
     const mapped = this._mapAvulsoRequestFromDb(updated);
     const idx = this._avulsoRequests.findIndex(r => r.id === id);
     if (idx !== -1) this._avulsoRequests[idx] = mapped;
+    return mapped;
+  },
+
+  // =========================================================================
+  // FUNIL DE LEADS — prospecção, ainda sem CNPJ/CPF fechado
+  // =========================================================================
+  _mapLeadFromDb(row) {
+    return {
+      id: row.id,
+      name: row.name,
+      segment: row.segment || '',
+      entryValue: row.entry_value,
+      recurringValue: row.recurring_value,
+      contactPhone: row.contact_phone || '',
+      status: row.status || 'Inicial',
+      pendingNotes: row.pending_notes || '',
+      priorityOrDeadline: row.priority_or_deadline || '',
+      description: row.description || '',
+      clientId: row.client_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  },
+
+  getLeads() {
+    return this._leads;
+  },
+
+  getLeadById(id) {
+    return this._leads.find(l => l.id === id) || null;
+  },
+
+  async createLead(data) {
+    const { data: inserted, error } = await sb.from('leads').insert({
+      name: data.name,
+      segment: data.segment || null,
+      entry_value: data.entryValue || null,
+      recurring_value: data.recurringValue || null,
+      contact_phone: data.contactPhone || null,
+      status: data.status || 'Inicial',
+      pending_notes: data.pendingNotes || null,
+      priority_or_deadline: data.priorityOrDeadline || null,
+      description: data.description || null
+    }).select('*').single();
+    if (error) throw error;
+    const mapped = this._mapLeadFromDb(inserted);
+    this._leads.unshift(mapped);
+    return mapped;
+  },
+
+  async updateLead(id, patch) {
+    const row = {};
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.segment !== undefined) row.segment = patch.segment || null;
+    if (patch.entryValue !== undefined) row.entry_value = patch.entryValue || null;
+    if (patch.recurringValue !== undefined) row.recurring_value = patch.recurringValue || null;
+    if (patch.contactPhone !== undefined) row.contact_phone = patch.contactPhone || null;
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.pendingNotes !== undefined) row.pending_notes = patch.pendingNotes || null;
+    if (patch.priorityOrDeadline !== undefined) row.priority_or_deadline = patch.priorityOrDeadline || null;
+    if (patch.description !== undefined) row.description = patch.description || null;
+    if (patch.clientId !== undefined) row.client_id = patch.clientId;
+
+    const { data: updated, error } = await sb.from('leads').update(row).eq('id', id).select('*').single();
+    if (error) throw error;
+
+    const mapped = this._mapLeadFromDb(updated);
+    const idx = this._leads.findIndex(l => l.id === id);
+    if (idx !== -1) this._leads[idx] = mapped;
     return mapped;
   },
 

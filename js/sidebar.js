@@ -22,6 +22,8 @@
       icon: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>' },
     { href: 'clientes.html', label: 'Carteira de Clientes',
       icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
+    { href: 'leads.html', label: 'Funil de Leads',
+      icon: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>' },
     { href: 'calendario.html', label: 'Calendário Fiscal',
       icon: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>' },
     { href: 'conformidade.html', label: 'Conformidade Fiscal',

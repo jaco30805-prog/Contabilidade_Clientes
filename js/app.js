@@ -58,6 +58,9 @@ const App = {
       case 'servicos-avulsos':
         AvulsoServices.render();
         break;
+      case 'leads':
+        LeadsManager.render();
+        break;
       case 'configuracoes':
         this.renderReportsView();
         break;
@@ -914,6 +917,10 @@ const App = {
     // consulta acontecer de novo dentro desta abertura do modal.
     this._pendingReceitaData = null;
 
+    // Idem pra conversão de lead: só fica marcado se convertToClient() abriu
+    // este modal e setou de novo logo em seguida (ver LeadsManager).
+    if (window.LeadsManager) LeadsManager._convertingLeadId = null;
+
     form.reset();
     document.getElementById('modal-client-title').textContent = clientId ? 'Editar Cadastro de Cliente' : 'Novo Cadastro de Cliente — Voal Consult';
     document.getElementById('client-form-id').value = clientId || '';
@@ -1025,7 +1032,16 @@ const App = {
   // automática jogue fora dado que a pessoa curou manualmente. Porte,
   // regime tributário e sócios (campos "de decisão") só são preenchidos
   // em cadastro novo, nunca durante a edição de um cliente existente.
-  applyCNPJData(data) {
+  applyCNPJData(data, forCnpj) {
+    // Descarta resposta obsoleta: se o campo já mudou pra outro CNPJ enquanto
+    // essa consulta ainda estava em voo (uma lenta, outra rápida chegando
+    // primeiro), aplicar esse retorno agora colaria os dados da empresa
+    // errada no CNPJ que está no campo agora. forCnpj é o que foi
+    // efetivamente consultado — comparado aqui, não em campo mutável.
+    if (forCnpj && Validators.onlyNumbers(document.getElementById('form-cnpj').value) !== forCnpj) {
+      return;
+    }
+
     const isNewClient = !document.getElementById('client-form-id').value;
 
     const setIfEmpty = (id, value) => {
@@ -1074,7 +1090,7 @@ const App = {
       lastSyncedAt: new Date().toISOString(),
       // CNPJ que gerou esse retrato — se a pessoa mudar o CNPJ no campo
       // antes de salvar, esse retrato "velho" não pode ir junto por engano.
-      _forCnpj: Validators.onlyNumbers(document.getElementById('form-cnpj').value)
+      _forCnpj: forCnpj
     };
 
     if (data.situacao && data.situacao !== 'ATIVA') {
@@ -1277,10 +1293,20 @@ const App = {
       this.closeAllModals();
       this.showToast(`Cliente ${saved.companyName || 'salvo'} com sucesso!`, 'success');
 
+      // Se esse cadastro nasceu de "Converter em Cliente" no Funil de Leads,
+      // vincula o lead ao cliente recém-criado e marca como Convertido.
+      if (window.LeadsManager?._convertingLeadId) {
+        await LeadsManager.finishConversion(saved.id);
+      }
+
       if (this.currentPage === 'dossie' && this.selectedClientId === saved.id) {
         this.renderClientDetail(saved.id);
       } else if (this.currentPage === 'clientes') {
         this.renderClientsList();
+      } else if (this.currentPage === 'leads') {
+        // Fica no Funil — a conversão já aconteceu (bloco acima), então a
+        // linha do lead recarrega mostrando "Convertido" e o link pro cliente.
+        LeadsManager.render();
       } else {
         window.location.href = 'clientes.html';
       }
@@ -1451,7 +1477,7 @@ const App = {
 
         try {
           const data = await Validators.fetchCNPJData(clean);
-          App.applyCNPJData(data);
+          App.applyCNPJData(data, clean);
         } catch (err) {
           App.showToast(err.message || 'Não foi possível consultar este CNPJ na Receita Federal.', 'danger');
         }

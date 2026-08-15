@@ -475,6 +475,67 @@
       </form>
     </div>
   </div>
+
+  <!-- MODAL: NOVO / EDITAR LEAD -->
+  <div id="modal-lead-form" class="modal-backdrop-wrap">
+    <div class="modal-card-box" style="max-width: 600px;">
+      <div class="modal-head">
+        <h3 id="modal-lead-title">Novo Lead</h3>
+        <button class="modal-close-trigger">&times;</button>
+      </div>
+      <form id="lead-form" onsubmit="LeadsManager.saveLeadForm(event)">
+        <input type="hidden" id="lead-form-id">
+        <div class="modal-content-scroll">
+          <div class="grid-row">
+            <div class="span-8 field-group">
+              <label>Nome *</label>
+              <input type="text" id="lead-name" class="form-control" required>
+            </div>
+            <div class="span-4 field-group">
+              <label>Segmento</label>
+              <input type="text" id="lead-segment" class="form-control" placeholder="Ex: Odontologia">
+            </div>
+          </div>
+          <div class="grid-row">
+            <div class="span-4 field-group">
+              <label>Telefone / WhatsApp</label>
+              <input type="text" id="lead-phone" class="form-control">
+            </div>
+            <div class="span-4 field-group">
+              <label>Valor de Entrada (R$)</label>
+              <input type="number" id="lead-entry-value" class="form-control" step="0.01">
+            </div>
+            <div class="span-4 field-group">
+              <label>Valor Recorrente (R$/mês)</label>
+              <input type="number" id="lead-recurring-value" class="form-control" step="0.01">
+            </div>
+          </div>
+          <div class="grid-row">
+            <div class="span-6 field-group">
+              <label>Situação</label>
+              <select id="lead-status" class="form-control"></select>
+            </div>
+            <div class="span-6 field-group">
+              <label>Prazo / Prioridade</label>
+              <input type="text" id="lead-priority" class="form-control" placeholder="Ex: até 30-09">
+            </div>
+          </div>
+          <div class="field-group" style="margin-bottom:12px;">
+            <label>Descrição</label>
+            <textarea id="lead-description" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="field-group">
+            <label>Notas Pendentes</label>
+            <textarea id="lead-pending-notes" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn-figma-secondary btn-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn-figma-primary">Salvar Lead</button>
+        </div>
+      </form>
+    </div>
+  </div>
   `;
 
   document.body.insertAdjacentHTML('beforeend', html);

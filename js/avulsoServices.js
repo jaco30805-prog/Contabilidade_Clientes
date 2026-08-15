@@ -179,9 +179,15 @@ const AvulsoServices = {
       status.textContent = 'Consultando Receita Federal...';
       try {
         const data = await Validators.fetchCNPJData(clean);
+        // Descarta se o campo já mudou pra outro documento enquanto essa
+        // consulta estava em voo — senão os dados da empresa errada
+        // poderiam colar no CNPJ que está no campo agora.
+        if (Validators.onlyNumbers(document.getElementById('avulso-req-doc').value) !== clean) return;
         const nomeField = document.getElementById('avulso-req-nome');
         if (!nomeField.value.trim()) nomeField.value = data.companyName;
-        this._pendingReceitaSnapshot = data;
+        // _forDoc guarda pra quem é esse retrato — checado de novo no submit
+        // (ver saveNewRequest), caso o campo mude de novo antes de salvar.
+        this._pendingReceitaSnapshot = { ...data, _forDoc: clean };
         status.textContent = `Dados encontrados: ${data.companyName}${data.situacao && data.situacao !== 'ATIVA' ? ` — atenção: situação "${data.situacao}"` : ''}`;
       } catch (err) {
         status.textContent = err.message || 'Não foi possível consultar este CNPJ.';
@@ -202,6 +208,14 @@ const AvulsoServices = {
       item: d.item, finalidade: d.finalidade, obtido: false
     }));
 
+    // Só vai junto se ainda for o retrato do documento que está no campo
+    // agora — mesma lógica de applyCNPJData() no cadastro de cliente.
+    let dadosReceita = null;
+    if (this._pendingReceitaSnapshot && this._pendingReceitaSnapshot._forDoc === docClean) {
+      const { _forDoc, ...clean } = this._pendingReceitaSnapshot;
+      dadosReceita = clean;
+    }
+
     const submitBtn = e.target.querySelector('button[type="submit"]');
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Criando...'; }
 
@@ -212,7 +226,7 @@ const AvulsoServices = {
         cnpj: isCnpj ? docClean : null,
         cpf: !isCnpj ? docClean : null,
         nomeSolicitante: document.getElementById('avulso-req-nome').value.trim(),
-        dadosReceita: this._pendingReceitaSnapshot,
+        dadosReceita,
         checklist
       });
       App.closeAllModals();
