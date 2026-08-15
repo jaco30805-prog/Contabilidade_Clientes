@@ -18,6 +18,8 @@ const DataStore = {
   _clients: [],
   _profilesById: {},
   _obligationsCatalog: [],
+  _avulsoCatalog: [],
+  _avulsoRequests: [],
   _initialized: false,
 
   TaxRegimes: {
@@ -57,7 +59,7 @@ const DataStore = {
   // =========================================================================
   async init() {
     try {
-      const [clientsRes, profilesRes, catalogRes] = await Promise.all([
+      const [clientsRes, profilesRes, catalogRes, avulsoCatalogRes, avulsoRequestsRes] = await Promise.all([
         sb.from('clients').select(`
           *,
           client_secondary_cnaes(*),
@@ -69,12 +71,16 @@ const DataStore = {
           client_interactions(*)
         `).order('company_name', { ascending: true }),
         sb.from('profiles').select('*'),
-        sb.from('obligations_catalog').select('*').eq('active', true)
+        sb.from('obligations_catalog').select('*').eq('active', true),
+        sb.from('avulso_service_catalog').select('*').eq('ativo', true).order('modulo').order('ordem'),
+        sb.from('avulso_service_requests').select('*').order('created_at', { ascending: false })
       ]);
 
       if (clientsRes.error) throw clientsRes.error;
       if (profilesRes.error) throw profilesRes.error;
       if (catalogRes.error) throw catalogRes.error;
+      if (avulsoCatalogRes.error) throw avulsoCatalogRes.error;
+      if (avulsoRequestsRes.error) throw avulsoRequestsRes.error;
 
       this._profilesById = {};
       (profilesRes.data || []).forEach(p => { this._profilesById[p.id] = p; });
@@ -89,6 +95,9 @@ const DataStore = {
         applicableRegimes: row.applicable_regimes || [],
         description: row.description
       }));
+
+      this._avulsoCatalog = (avulsoCatalogRes.data || []).map(row => this._mapAvulsoCatalogFromDb(row));
+      this._avulsoRequests = (avulsoRequestsRes.data || []).map(row => this._mapAvulsoRequestFromDb(row));
 
       this._clients = (clientsRes.data || []).map(row => this._mapClientFromDb(row));
       this._initialized = true;
@@ -471,6 +480,89 @@ const DataStore = {
     const { error } = await sb.from('client_cnds').upsert(rows, { onConflict: 'client_id,tipo' });
     if (error) throw error;
     await this._refetchClient(clientId);
+  },
+
+  // =========================================================================
+  // SERVIÇOS AVULSOS — catálogo de referência + pipeline de solicitações
+  // =========================================================================
+  _mapAvulsoCatalogFromDb(row) {
+    return {
+      id: row.id,
+      modulo: row.modulo,
+      ordem: row.ordem,
+      nome: row.nome,
+      aplicavelA: row.aplicavel_a,
+      descricao: row.descricao || '',
+      honorarioMin: row.honorario_min,
+      honorarioMax: row.honorario_max,
+      honorarioModelo: row.honorario_modelo,
+      prazoExecucaoInterna: row.prazo_execucao_interna || '',
+      prazoConclusaoTotal: row.prazo_conclusao_total || '',
+      documentosNecessarios: row.documentos_necessarios || [],
+      portaisAcessados: row.portais_acessados || []
+    };
+  },
+
+  _mapAvulsoRequestFromDb(row) {
+    return {
+      id: row.id,
+      catalogServiceId: row.catalog_service_id,
+      clientId: row.client_id,
+      cnpj: row.cnpj || '',
+      cpf: row.cpf || '',
+      nomeSolicitante: row.nome_solicitante,
+      status: row.status,
+      dadosReceita: row.dados_receita || null,
+      checklist: row.checklist || [],
+      honorarioAcordado: row.honorario_acordado,
+      observacoes: row.observacoes || '',
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  },
+
+  getAvulsoCatalog() {
+    return this._avulsoCatalog;
+  },
+
+  getAvulsoRequests() {
+    return this._avulsoRequests;
+  },
+
+  async createAvulsoRequest(data) {
+    const { data: inserted, error } = await sb.from('avulso_service_requests').insert({
+      catalog_service_id: data.catalogServiceId,
+      client_id: data.clientId || null,
+      cnpj: data.cnpj || null,
+      cpf: data.cpf || null,
+      nome_solicitante: data.nomeSolicitante,
+      status: 'NOVO',
+      dados_receita: data.dadosReceita || null,
+      checklist: data.checklist || [],
+      created_by: window.Auth?.currentUserId() || null
+    }).select('*').single();
+    if (error) throw error;
+    const mapped = this._mapAvulsoRequestFromDb(inserted);
+    this._avulsoRequests.unshift(mapped);
+    return mapped;
+  },
+
+  async updateAvulsoRequest(id, patch) {
+    const row = {};
+    if (patch.status !== undefined) row.status = patch.status;
+    if (patch.checklist !== undefined) row.checklist = patch.checklist;
+    if (patch.honorarioAcordado !== undefined) row.honorario_acordado = patch.honorarioAcordado;
+    if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
+
+    const { data: updated, error } = await sb.from('avulso_service_requests')
+      .update(row).eq('id', id).select('*').single();
+    if (error) throw error;
+
+    const mapped = this._mapAvulsoRequestFromDb(updated);
+    const idx = this._avulsoRequests.findIndex(r => r.id === id);
+    if (idx !== -1) this._avulsoRequests[idx] = mapped;
+    return mapped;
   },
 
   async _refetchClient(clientId) {

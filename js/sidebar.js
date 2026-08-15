@@ -28,6 +28,8 @@
       icon: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>' },
     { href: 'cnds.html', label: 'Matriz de CNDs',
       icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/>' },
+    { href: 'servicos-avulsos.html', label: 'Serviços Avulsos',
+      icon: '<path d="m21 8-2 2-1.5-1.5"/><path d="M3 12h4l3 8 4-16 3 8h4"/>' },
     { href: 'honorarios.html', label: 'Honorários (MRR)',
       icon: '<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>' },
     { href: 'precificacao.html', label: 'Calculadora de Preço',

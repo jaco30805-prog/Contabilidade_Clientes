@@ -55,6 +55,9 @@ const App = {
       case 'honorarios':
         this.renderFinancialView();
         break;
+      case 'servicos-avulsos':
+        AvulsoServices.render();
+        break;
       case 'configuracoes':
         this.renderReportsView();
         break;
@@ -373,8 +376,6 @@ const App = {
     this.renderDetailInteractionsTab(client);
     this.renderDetailTimeTab(client);
 
-    this.switchDetailTab('tab-general');
-
     // Abre a contagem de tempo para este cliente — roda até a página ser
     // deixada (js/timeTracking.js cuida de fechar sozinho).
     if (window.TimeTracker && !TimeTracker.entryId) {
@@ -382,22 +383,12 @@ const App = {
     }
   },
 
-  switchDetailTab(tabId) {
-    document.querySelectorAll('.tab-segment-btn').forEach(btn => {
-      if (btn.dataset.tab === tabId) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    document.querySelectorAll('.tab-pane-view').forEach(pane => {
-      if (pane.id === tabId) {
-        pane.classList.add('active');
-      } else {
-        pane.classList.remove('active');
-      }
-    });
+  // Dossiê e formulário de cadastro são página única, rolando — usado pelos
+  // botões de navegação rápida (não escondem mais nada via display:none,
+  // que era o que travava o "Salvar Cadastro" quando um campo obrigatório
+  // ficava numa aba fechada).
+  jumpToSection(sectionId) {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   },
 
   renderDetailGeneralTab(client) {
@@ -989,26 +980,10 @@ const App = {
       this.addPartnerRow();
     }
 
-    this.switchModalTab('form-tab-ident');
+    // Página única agora — só garante que abre do topo, não na posição de
+    // rolagem que tenha ficado de uma edição anterior.
+    modal.querySelector('.modal-content-scroll')?.scrollTo(0, 0);
     modal.classList.add('active');
-  },
-
-  switchModalTab(tabId) {
-    document.querySelectorAll('.modal-tab-btn').forEach(btn => {
-      if (btn.dataset.tab === tabId) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
-    document.querySelectorAll('.modal-tab-pane').forEach(pane => {
-      if (pane.id === tabId) {
-        pane.style.display = 'block';
-      } else {
-        pane.style.display = 'none';
-      }
-    });
   },
 
   addPartnerRow(data = {}) {
@@ -1026,7 +1001,7 @@ const App = {
         <button type="button" class="btn-figma-secondary" style="padding:2px 6px; font-size:0.7rem; color:#EF4444;" onclick="document.getElementById('${rowId}').remove()">Remover</button>
       </div>
       <div class="grid-row">
-        <div class="span-6 field-group"><label>Nome Completo</label><input type="text" class="form-control partner-name" value="${data.name || ''}" required></div>
+        <div class="span-6 field-group"><label>Nome Completo</label><input type="text" class="form-control partner-name" value="${data.name || ''}"></div>
         <div class="span-6 field-group"><label>CPF</label><input type="text" class="form-control partner-cpf" value="${data.cpf || ''}"></div>
       </div>
       <div class="grid-row">

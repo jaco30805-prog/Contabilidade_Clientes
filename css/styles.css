@@ -299,27 +299,52 @@ header.top-header {
 }
 
 /* ==========================================================================
-   ABAS (Dossiê do Cliente & Formulário de Cadastro)
+   SEÇÕES DE PÁGINA ÚNICA (Dossiê do Cliente & Formulário de Cadastro)
+   Antes eram abas escondidas via display:none — inclusive campos
+   obrigatórios do formulário, o que travava o "Salvar Cadastro" sem
+   nenhum aviso visível quando a aba errada estava aberta. Agora tudo fica
+   visível, rolando numa página só; a barra de navegação só pula de seção
+   em seção com scroll suave (App.jumpToSection).
    ========================================================================== */
-.tab-pane-view {
-  display: none;
+html {
+  scroll-behavior: smooth;
 }
 
-.tab-pane-view.active {
-  display: block;
-  animation: fadeIn 0.15s ease-in;
+.form-section {
+  padding: 20px 0;
+  border-top: 1px solid var(--border-color);
 }
 
-.tab-segment-btn.active {
+.form-section:first-child {
+  padding-top: 4px;
+  border-top: none;
+}
+
+.section-jump-nav {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 24px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.section-jump-nav button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.section-jump-nav button:hover {
   background: var(--bg-card);
-  color: var(--text-main);
-  box-shadow: var(--shadow-sm);
-}
-
-.modal-tab-btn.active {
-  background: var(--primary-blue);
-  color: #FFFFFF;
-  border-color: var(--primary-blue);
+  color: var(--primary-blue);
 }
 
 .dashboard-header {
@@ -863,10 +888,26 @@ table.figma-table tbody tr:hover {
   cursor: pointer;
 }
 
+/* O <form> fica entre .modal-card-box (flex) e .modal-content-scroll
+   (flex:1) em todo modal — sem ele também ser flex, o flex:1 do filho não
+   tem efeito nenhum, porque o pai direto dele (o <form>) não é um
+   container flex. Isso sempre esteve quebrado; só não aparecia porque o
+   conteúdo de uma aba de cada vez sempre coube nos 90vh do modal. Agora
+   que os formulários viraram página única (mais conteúdo de uma vez), o
+   rodapé — com o botão "Salvar" — era empurrado pra fora da tela. */
+.modal-card-box > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .modal-content-scroll {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  scroll-behavior: smooth;
 }
 
 .modal-foot {

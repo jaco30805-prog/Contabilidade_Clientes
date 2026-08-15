@@ -61,19 +61,22 @@
           </div>
         </div>
 
-        <div style="display:flex; gap:6px; background:var(--bg-card-subtle); padding:4px; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-bottom:20px; overflow-x:auto;">
-          <button class="tab-segment-btn btn-figma-secondary active" data-tab="tab-general" onclick="App.switchDetailTab('tab-general')">Dados Gerais</button>
-          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-fiscal" onclick="App.switchDetailTab('tab-fiscal')">Fiscal & CNAEs</button>
-          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-partners" onclick="App.switchDetailTab('tab-partners')">Sócios (QSA)</button>
-          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-access" onclick="App.switchDetailTab('tab-access')">Certificado & Acessos</button>
-          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-cnd" onclick="App.switchDetailTab('tab-cnd')">Matriz CND</button>
-          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-financial" onclick="App.switchDetailTab('tab-financial')">Honorários</button>
-          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-interactions" onclick="App.switchDetailTab('tab-interactions')">Atendimentos</button>
-          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-time" onclick="App.switchDetailTab('tab-time')">Tempo Trabalhado</button>
+        <!-- Dossiê inteiro numa página só, rolando — antes cada bloco era uma
+             aba escondida via display:none; agora os botões abaixo só pulam
+             pra seção, sem esconder nada. -->
+        <div class="section-jump-nav" style="margin-bottom:20px;">
+          <button type="button" onclick="App.jumpToSection('tab-general')">Dados Gerais</button>
+          <button type="button" onclick="App.jumpToSection('tab-fiscal')">Fiscal & CNAEs</button>
+          <button type="button" onclick="App.jumpToSection('tab-partners')">Sócios (QSA)</button>
+          <button type="button" onclick="App.jumpToSection('tab-access')">Certificado & Acessos</button>
+          <button type="button" onclick="App.jumpToSection('tab-cnd')">Matriz CND</button>
+          <button type="button" onclick="App.jumpToSection('tab-financial')">Honorários</button>
+          <button type="button" onclick="App.jumpToSection('tab-interactions')">Atendimentos</button>
+          <button type="button" onclick="App.jumpToSection('tab-time')">Tempo Trabalhado</button>
         </div>
 
-        <!-- Tab: Dados Gerais -->
-        <div id="tab-general" class="tab-pane-view active">
+        <!-- Dados Gerais -->
+        <div id="tab-general" class="form-section">
           <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
             <div class="figma-panel">
               <div class="figma-panel-title">Identificação Empresarial</div>
@@ -151,8 +154,8 @@
           </div>
         </div>
 
-        <!-- Tab: Fiscal -->
-        <div id="tab-fiscal" class="tab-pane-view" style="display: none;">
+        <!-- Fiscal -->
+        <div id="tab-fiscal" class="form-section">
           <div class="kpi-grid" style="grid-template-columns: 1fr 2fr;">
             <div class="figma-panel">
               <div class="figma-panel-title">Enquadramento Fiscal</div>
@@ -184,8 +187,8 @@
           </div>
         </div>
 
-        <!-- Tab: Sócios -->
-        <div id="tab-partners" class="tab-pane-view" style="display: none;">
+        <!-- Sócios -->
+        <div id="tab-partners" class="form-section">
           <div class="table-container">
             <table class="figma-table">
               <thead>
@@ -217,8 +220,8 @@
           </div>
         </div>
 
-        <!-- Tab: Certificado e Acessos -->
-        <div id="tab-access" class="tab-pane-view" style="display: none;">
+        <!-- Certificado e Acessos -->
+        <div id="tab-access" class="form-section">
           <div class="kpi-grid" style="grid-template-columns: 1fr 2fr;">
             <div class="figma-panel">
               <div class="figma-panel-title">Certificado Digital (e-CNPJ / e-CPF)</div>
@@ -241,8 +244,8 @@
           </div>
         </div>
 
-        <!-- Tab: CNDs -->
-        <div id="tab-cnd" class="tab-pane-view" style="display: none;">
+        <!-- CNDs -->
+        <div id="tab-cnd" class="form-section">
           <div id="det-cnd-grid" class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
             <div class="kpi-card">
               <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
@@ -291,8 +294,8 @@
           </div>
         </div>
 
-        <!-- Tab: Honorários -->
-        <div id="tab-financial" class="tab-pane-view" style="display: none;">
+        <!-- Honorários -->
+        <div id="tab-financial" class="form-section">
           <div class="kpi-grid" style="grid-template-columns: 1fr 2fr;">
             <div class="figma-panel">
               <div class="figma-panel-title">Honorários Contratuais</div>
@@ -310,8 +313,8 @@
           </div>
         </div>
 
-        <!-- Tab: Atendimentos -->
-        <div id="tab-interactions" class="tab-pane-view" style="display: none;">
+        <!-- Atendimentos -->
+        <div id="tab-interactions" class="form-section">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
             <div class="figma-panel-title" style="margin-bottom:0;">Histórico de Atendimentos e Orientações</div>
             <button class="btn-figma-primary" onclick="App.openInteractionModal(App.selectedClientId)">+ Novo Registro</button>
@@ -330,8 +333,8 @@
           </div>
         </div>
 
-        <!-- Tab: Tempo Trabalhado -->
-        <div id="tab-time" class="tab-pane-view" style="display: none;">
+        <!-- Tempo Trabalhado -->
+        <div id="tab-time" class="form-section">
           <div class="figma-panel-title">Tempo Trabalhado</div>
           <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-8px; margin-bottom:16px;">
             Contagem automática enquanto este Dossiê fica aberto — inclusive o tempo gasto em atendimentos fora do sistema, desde que a página continue aberta. Isso é só medição interna de produtividade; não tem relação com o preço cobrado do cliente.

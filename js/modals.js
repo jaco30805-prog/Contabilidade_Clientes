@@ -22,13 +22,17 @@
         <button class="modal-close-trigger">&times;</button>
       </div>
 
-      <div style="display:flex; gap:6px; padding:12px 24px 0; background:var(--bg-card-subtle); overflow-x:auto;">
-        <button type="button" class="modal-tab-btn btn-figma-secondary active" data-tab="form-tab-ident" onclick="App.switchModalTab('form-tab-ident')">1. Identificação</button>
-        <button type="button" class="modal-tab-btn btn-figma-secondary" data-tab="form-tab-contact" onclick="App.switchModalTab('form-tab-contact')">2. Contatos</button>
-        <button type="button" class="modal-tab-btn btn-figma-secondary" data-tab="form-tab-fiscal" onclick="App.switchModalTab('form-tab-fiscal')">3. Fiscal</button>
-        <button type="button" class="modal-tab-btn btn-figma-secondary" data-tab="form-tab-partners" onclick="App.switchModalTab('form-tab-partners')">4. Sócios</button>
-        <button type="button" class="modal-tab-btn btn-figma-secondary" data-tab="form-tab-access" onclick="App.switchModalTab('form-tab-access')">5. Certificados</button>
-        <button type="button" class="modal-tab-btn btn-figma-secondary" data-tab="form-tab-fee" onclick="App.switchModalTab('form-tab-fee')">6. Honorários</button>
+      <!-- Tudo numa página só, rolando — os links abaixo só pulam pra seção,
+           não escondem nada. Campo obrigatório escondido atrás de uma aba
+           fechada era exatamente o que travava o "Salvar Cadastro" sem
+           nenhum aviso visível. -->
+      <div class="section-jump-nav">
+        <button type="button" onclick="App.jumpToSection('form-tab-ident')">1. Identificação</button>
+        <button type="button" onclick="App.jumpToSection('form-tab-contact')">2. Contatos</button>
+        <button type="button" onclick="App.jumpToSection('form-tab-fiscal')">3. Fiscal</button>
+        <button type="button" onclick="App.jumpToSection('form-tab-partners')">4. Sócios</button>
+        <button type="button" onclick="App.jumpToSection('form-tab-access')">5. Certificados</button>
+        <button type="button" onclick="App.jumpToSection('form-tab-fee')">6. Honorários</button>
       </div>
 
       <form id="client-form" onsubmit="App.saveClientForm(event)">
@@ -36,7 +40,8 @@
 
         <div class="modal-content-scroll">
 
-          <div id="form-tab-ident" class="modal-tab-pane active">
+          <div id="form-tab-ident" class="form-section">
+            <div class="figma-panel-title">1. Identificação</div>
             <div class="grid-row">
               <div class="span-8 field-group">
                 <label>Razão Social / Nome Completo *</label>
@@ -107,7 +112,8 @@
             </div>
           </div>
 
-          <div id="form-tab-contact" class="modal-tab-pane" style="display: none;">
+          <div id="form-tab-contact" class="form-section">
+            <div class="figma-panel-title">2. Contatos</div>
             <div class="grid-row">
               <div class="span-6 field-group">
                 <label>Nome do Contato Principal</label>
@@ -169,7 +175,8 @@
             </div>
           </div>
 
-          <div id="form-tab-fiscal" class="modal-tab-pane" style="display: none;">
+          <div id="form-tab-fiscal" class="form-section">
+            <div class="figma-panel-title">3. Fiscal</div>
             <div class="grid-row">
               <div class="span-6 field-group">
                 <label>Inscrição Estadual (IE)</label>
@@ -192,15 +199,17 @@
             </div>
           </div>
 
-          <div id="form-tab-partners" class="modal-tab-pane" style="display: none;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div id="form-tab-partners" class="form-section">
+            <div class="figma-panel-title" style="margin-bottom:0;">4. Sócios</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0 12px;">
               <span style="font-size:0.85rem; font-weight:600;">Quadro de Sócios e Administradores (QSA)</span>
               <button type="button" class="btn-figma-secondary" onclick="App.addPartnerRow()">+ Adicionar Sócio</button>
             </div>
             <div id="form-partners-list"></div>
           </div>
 
-          <div id="form-tab-access" class="modal-tab-pane" style="display: none;">
+          <div id="form-tab-access" class="form-section">
+            <div class="figma-panel-title">5. Certificados</div>
             <div class="grid-row">
               <div class="span-4 field-group">
                 <label>Tipo de Certificado</label>
@@ -231,7 +240,8 @@
             </div>
           </div>
 
-          <div id="form-tab-fee" class="modal-tab-pane" style="display: none;">
+          <div id="form-tab-fee" class="form-section">
+            <div class="figma-panel-title">6. Honorários</div>
             <div class="grid-row">
               <div class="span-4 field-group">
                 <label>Honorário Mensal (R$)</label>
@@ -369,6 +379,98 @@
         <div class="modal-foot">
           <button type="button" class="btn-figma-secondary btn-modal-cancel">Cancelar</button>
           <button type="submit" class="btn-figma-primary">Salvar Certidões</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: NOVA SOLICITAÇÃO DE SERVIÇO AVULSO -->
+  <div id="modal-avulso-request" class="modal-backdrop-wrap">
+    <div class="modal-card-box" style="max-width: 620px;">
+      <div class="modal-head">
+        <h3>Nova Solicitação — Serviço Avulso</h3>
+        <button class="modal-close-trigger">&times;</button>
+      </div>
+      <form id="avulso-request-form" onsubmit="AvulsoServices.saveNewRequest(event)">
+        <div class="modal-content-scroll">
+          <div class="field-group" style="margin-bottom:12px;">
+            <label>Serviço *</label>
+            <select id="avulso-req-service" class="form-control" required onchange="AvulsoServices.onServiceSelected()">
+              <option value="">— Selecione o serviço —</option>
+            </select>
+            <div id="avulso-req-service-info" style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;"></div>
+          </div>
+
+          <div class="grid-row">
+            <div class="span-6 field-group">
+              <label>CNPJ ou CPF do Solicitante <span style="font-weight:400; color:var(--text-muted);">(CNPJ busca dados na Receita)</span></label>
+              <input type="text" id="avulso-req-doc" class="form-control" required>
+            </div>
+            <div class="span-6 field-group">
+              <label>Nome / Razão Social *</label>
+              <input type="text" id="avulso-req-nome" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="field-group" style="margin-bottom:12px;">
+            <label>Já é cliente da carteira? (opcional)</label>
+            <select id="avulso-req-client" class="form-control">
+              <option value="">— Não vincular a nenhum cliente —</option>
+            </select>
+          </div>
+
+          <div id="avulso-req-receita-status" style="font-size:0.78rem; color:var(--text-muted);"></div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn-figma-secondary btn-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn-figma-primary">Criar Solicitação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DETALHE / ATUALIZAÇÃO DE SOLICITAÇÃO AVULSA -->
+  <div id="modal-avulso-detail" class="modal-backdrop-wrap">
+    <div class="modal-card-box" style="max-width: 680px;">
+      <div class="modal-head">
+        <h3 id="avulso-detail-title">Solicitação</h3>
+        <button class="modal-close-trigger">&times;</button>
+      </div>
+      <form id="avulso-detail-form" onsubmit="AvulsoServices.saveRequestUpdate(event)">
+        <input type="hidden" id="avulso-detail-id">
+        <div class="modal-content-scroll">
+          <div id="avulso-detail-summary" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;"></div>
+
+          <div class="grid-row">
+            <div class="span-6 field-group">
+              <label>Situação</label>
+              <select id="avulso-detail-status" class="form-control">
+                <option value="NOVO">Novo</option>
+                <option value="EM_ANDAMENTO">Em Andamento</option>
+                <option value="AGUARDANDO_CLIENTE">Aguardando Cliente</option>
+                <option value="CONCLUIDO">Concluído</option>
+                <option value="CANCELADO">Cancelado</option>
+              </select>
+            </div>
+            <div class="span-6 field-group">
+              <label>Honorário Acordado (R$)</label>
+              <input type="number" id="avulso-detail-honorario" class="form-control" step="0.01">
+            </div>
+          </div>
+
+          <div class="field-group" style="margin:12px 0;">
+            <label>Checklist de Documentos e Informações</label>
+            <div id="avulso-detail-checklist"></div>
+          </div>
+
+          <div class="field-group">
+            <label>Observações</label>
+            <textarea id="avulso-detail-notes" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn-figma-secondary btn-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn-figma-primary">Salvar Solicitação</button>
         </div>
       </form>
     </div>
