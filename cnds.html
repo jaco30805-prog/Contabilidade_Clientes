@@ -108,7 +108,9 @@
   // Exporta a Matriz de CNDs a partir da carteira real de clientes
   // (antes exportava sempre as mesmas 6 empresas de exemplo, fixas no código).
   function exportCNDsCSV() {
-    const clients = DataStore.getClients().filter(c => c.status === 'ATIVO');
+    // Mesmo filtro da tela (renderCNDsView em app.js): esporádico não é
+    // monitorado, não pode aparecer no export da matriz de CNDs.
+    const clients = DataStore.getClients().filter(c => c.status === 'ATIVO' && c.recurrence !== 'ESPORADICO');
     const cndTypes = ['federal', 'estadual', 'municipal', 'fgts', 'trabalhista'];
 
     const rows = [

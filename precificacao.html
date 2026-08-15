@@ -385,9 +385,26 @@
           return;
         }
         this.toast(`${label} salvo(a) com sucesso!`, 'success');
+
+        // Preserva o que a pessoa já tinha preenchido na calculadora — salvar
+        // uma tabela de referência não pode zerar o orçamento em andamento.
+        const calcIds = ['pc-nome','pc-regime','pc-atividade','pc-urgencia','pc-funcionarios','pc-volume-nf',
+          'pc-tipo-emissao','pc-movimentacoes','pc-complexidade','pc-custo-sistemas','pc-custo-mao-obra',
+          'pc-custo-indireto','pc-imposto'];
+        const preserved = {};
+        calcIds.forEach(id => { preserved[id] = document.getElementById(id).value; });
+
         await Pricing.loadAll();
         this.populateSelects();
         this.renderReferenceTables();
+
+        calcIds.forEach(id => {
+          const el = document.getElementById(id);
+          // Só reaplica se a opção ainda existir (ex.: select cujo valor foi
+          // renomeado na própria edição não tenta forçar um valor inválido).
+          if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === preserved[id])) return;
+          el.value = preserved[id];
+        });
         this.recalculate();
       },
 

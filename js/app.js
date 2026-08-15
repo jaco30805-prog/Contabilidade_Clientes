@@ -583,8 +583,13 @@ const App = {
           const end = endRef ? new Date(endRef) : null;
           const durationSecs = Math.max(0, ((end || new Date()) - start) / 1000);
           const responsavel = DataStore._profilesById?.[entry.user_id]?.full_name || '-';
+          // Sessão "aberta" mas sem heartbeat recente (> 90s, bem mais que o
+          // ciclo de 20s) provavelmente foi abandonada — aba/navegador
+          // fechado à força, sem disparar o fechamento correto.
+          const secondsSinceHeartbeat = (Date.now() - new Date(entry.last_heartbeat_at).getTime()) / 1000;
+          const isStale = entry.status === 'ABERTO' && secondsSinceHeartbeat > 90;
           const situacao = entry.status === 'ABERTO'
-            ? '<span class="chip chip-warning">Em andamento</span>'
+            ? (isStale ? '<span class="chip chip-danger" title="Sem atividade recente — provavelmente a aba foi fechada sem avisar o sistema">Sessão travada?</span>' : '<span class="chip chip-warning">Em andamento</span>')
             : '<span class="chip chip-success">Concluída</span>';
           return `
             <tr>
