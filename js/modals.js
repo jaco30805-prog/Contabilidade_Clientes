@@ -50,7 +50,7 @@
 
             <div class="grid-row">
               <div class="span-4 field-group">
-                <label>CNPJ / CPF *</label>
+                <label>CNPJ / CPF * <span style="font-weight:400; color:var(--text-muted);">(CNPJ busca dados na Receita)</span></label>
                 <input type="text" id="form-cnpj" class="form-control" required>
               </div>
               <div class="span-4 field-group">

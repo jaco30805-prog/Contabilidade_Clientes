@@ -965,6 +965,56 @@ const App = {
     container.appendChild(div);
   },
 
+  // Aplica o retorno de Validators.fetchCNPJData ao formulário de cliente.
+  // Nunca sobrescreve um campo já preenchido — evita que uma consulta
+  // automática jogue fora dado que a pessoa curou manualmente. Porte,
+  // regime tributário e sócios (campos "de decisão") só são preenchidos
+  // em cadastro novo, nunca durante a edição de um cliente existente.
+  applyCNPJData(data) {
+    const isNewClient = !document.getElementById('client-form-id').value;
+
+    const setIfEmpty = (id, value) => {
+      const el = document.getElementById(id);
+      if (el && value && !el.value.trim()) el.value = value;
+    };
+
+    setIfEmpty('form-company-name', data.companyName);
+    setIfEmpty('form-trade-name', data.tradeName);
+    setIfEmpty('form-founding-date', data.foundingDate);
+    setIfEmpty('form-cnae-code', data.cnaeCode);
+    setIfEmpty('form-cnae-desc', data.cnaeDesc);
+    setIfEmpty('form-phone', data.phone ? Validators.formatPhone(data.phone) : '');
+    setIfEmpty('form-email', data.email);
+    setIfEmpty('form-cep', data.cep ? Validators.formatCEP(data.cep) : '');
+    setIfEmpty('form-street', data.street);
+    setIfEmpty('form-number', data.number);
+    setIfEmpty('form-comp', data.complement);
+    setIfEmpty('form-neighborhood', data.neighborhood);
+    setIfEmpty('form-city', data.city);
+    setIfEmpty('form-state', data.state);
+
+    if (isNewClient) {
+      const sizeSelect = document.getElementById('form-company-size');
+      if (sizeSelect && data.companySizeGuess) sizeSelect.value = data.companySizeGuess;
+
+      const regimeSelect = document.getElementById('form-tax-regime');
+      if (regimeSelect && data.taxRegimeGuess) regimeSelect.value = data.taxRegimeGuess;
+
+      const hasPartners = [...document.querySelectorAll('#form-partners-list .partner-name')]
+        .some(input => input.value.trim());
+      if (!hasPartners && data.partners && data.partners.length) {
+        document.getElementById('form-partners-list').innerHTML = '';
+        data.partners.forEach(p => this.addPartnerRow(p));
+      }
+    }
+
+    if (data.situacao && data.situacao !== 'ATIVA') {
+      this.showToast(`Atenção: situação cadastral na Receita Federal é "${data.situacao}".`, 'danger');
+    } else {
+      this.showToast('Dados da empresa preenchidos automaticamente via Receita Federal!', 'success');
+    }
+  },
+
   async saveClientForm(e) {
     e.preventDefault();
     const clientId = document.getElementById('client-form-id').value;
@@ -1208,13 +1258,26 @@ const App = {
   setupInputMasks() {
     const cnpjInput = document.getElementById('form-cnpj');
     if (cnpjInput) {
-      cnpjInput.addEventListener('input', (e) => {
+      let lastCnpjLookup = '';
+      cnpjInput.addEventListener('input', async (e) => {
         const val = e.target.value;
         const clean = Validators.onlyNumbers(val);
         if (clean.length > 11) {
           e.target.value = Validators.formatCNPJ(clean);
         } else {
           e.target.value = Validators.formatCPF(clean);
+        }
+
+        // CPF (pessoa física) tem 11 dígitos e não deve disparar consulta;
+        // só busca ao completar os 14 dígitos de um CNPJ, uma vez por valor.
+        if (clean.length !== 14 || clean === lastCnpjLookup) return;
+        lastCnpjLookup = clean;
+
+        try {
+          const data = await Validators.fetchCNPJData(clean);
+          App.applyCNPJData(data);
+        } catch (err) {
+          App.showToast(err.message || 'Não foi possível consultar este CNPJ na Receita Federal.', 'danger');
         }
       });
     }

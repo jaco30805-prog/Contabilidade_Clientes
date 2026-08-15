@@ -216,6 +216,81 @@ const Validators = {
       console.warn('Falha ao buscar ViaCEP:', err.message);
       throw err;
     }
+  },
+
+  // Buscar dados cadastrais via CNPJ (BrasilAPI — espelho público da Receita
+  // Federal, gratuito e sem necessidade de chave/credencial).
+  async fetchCNPJData(cnpj) {
+    const clean = this.onlyNumbers(cnpj);
+    if (clean.length !== 14) {
+      throw new Error('CNPJ deve conter 14 dígitos.');
+    }
+    // Corta na validação local (mesmo dígito verificador usado no cadastro)
+    // antes de gastar uma chamada de rede com um CNPJ que já sabemos inválido.
+    if (!this.validateCNPJ(clean)) {
+      throw new Error('CNPJ inválido — confira os dígitos.');
+    }
+    let res;
+    try {
+      res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
+    } catch (err) {
+      throw new Error('Não foi possível consultar a Receita Federal agora. Verifique sua conexão.');
+    }
+    if (!res.ok) {
+      // A API devolve uma mensagem específica (ex.: "CNPJ inválido", CNPJ
+      // não encontrado) — melhor repassar isso do que um erro genérico.
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.message
+        || (res.status === 404 ? 'CNPJ não encontrado na Receita Federal.' : 'Falha ao consultar CNPJ na Receita Federal.'));
+    }
+    const data = await res.json();
+
+    // Ano mais recente do histórico de escrituração (ECF) é a melhor pista
+    // pública disponível para Lucro Real x Presumido — a API não expõe o
+    // "regime tributário" de forma direta como faz para Simples/MEI.
+    const regimeHistorico = Array.isArray(data.regime_tributario)
+      ? [...data.regime_tributario].sort((a, b) => (b.ano || 0) - (a.ano || 0))[0]
+      : null;
+    const tributacaoMap = { 'LUCRO REAL': 'LUCRO_REAL', 'LUCRO PRESUMIDO': 'LUCRO_PRESUMIDO' };
+
+    let taxRegimeGuess = null;
+    if (data.opcao_pelo_mei === true) taxRegimeGuess = 'MEI';
+    else if (data.opcao_pelo_simples === true) taxRegimeGuess = 'SIMPLES_NACIONAL';
+    else if (regimeHistorico) taxRegimeGuess = tributacaoMap[regimeHistorico.forma_de_tributacao] || null;
+
+    let companySizeGuess = null;
+    if (data.opcao_pelo_mei === true) companySizeGuess = 'MEI';
+    else if (data.codigo_porte === '01' || data.codigo_porte === 1) companySizeGuess = 'ME';
+    else if (data.codigo_porte === '03' || data.codigo_porte === 3) companySizeGuess = 'EPP';
+    // codigo_porte "05" (DEMAIS) cobre médio e grande porte sem distinção —
+    // não dá pra chutar qual dos dois sem arriscar preencher errado.
+
+    return {
+      companyName: data.razao_social || '',
+      tradeName: data.nome_fantasia || '',
+      foundingDate: data.data_inicio_atividade || '',
+      situacao: data.descricao_situacao_cadastral || '',
+      taxRegimeGuess,
+      companySizeGuess,
+      cnaeCode: data.cnae_fiscal ? String(data.cnae_fiscal) : '',
+      cnaeDesc: data.cnae_fiscal_descricao || '',
+      cep: data.cep || '',
+      street: [data.descricao_tipo_de_logradouro, data.logradouro].filter(Boolean).join(' ').trim(),
+      number: data.numero || '',
+      complement: data.complemento || '',
+      neighborhood: data.bairro || '',
+      city: data.municipio || '',
+      state: data.uf || '',
+      phone: data.ddd_telefone_1 || '',
+      email: data.email || '',
+      // Percentual de participação societária não é público na Receita —
+      // a API não retorna esse campo, só nome/CPF (mascarado) e qualificação.
+      partners: (data.qsa || []).map(s => ({
+        name: s.nome_socio || '',
+        cpf: s.cnpj_cpf_do_socio || '',
+        isAdmin: /administr|presidente|titular|s[oó]cio-ger/i.test(s.qualificacao_socio || '')
+      }))
+    };
   }
 };
 
