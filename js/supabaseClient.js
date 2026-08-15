@@ -17,3 +17,9 @@ window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     detectSessionInUrl: true
   }
 });
+
+// Expostos para js/timeTracking.js montar a chamada de fechamento de sessão
+// (fetch com keepalive, disparada no unload da página — não pode depender
+// de uma Promise do supabase-js, que pode não terminar a tempo).
+window.SUPABASE_URL = SUPABASE_URL;
+window.SUPABASE_PUBLISHABLE_KEY = SUPABASE_PUBLISHABLE_KEY;

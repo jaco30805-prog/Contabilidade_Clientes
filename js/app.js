@@ -126,7 +126,11 @@ const App = {
     const activeClients = clients.filter(c => c.status === 'ATIVO');
     const metrics = ObligationsManager.getMetrics(this.selectedCompetence);
 
-    const totalMRR = activeClients.reduce((acc, c) => acc + (c.financial?.monthlyFee || 0), 0);
+    // MRR = receita recorrente mensal — esporádicos não entram (não é
+    // recorrência, é serviço pontual).
+    const totalMRR = activeClients
+      .filter(c => c.recurrence !== 'ESPORADICO')
+      .reduce((acc, c) => acc + (c.financial?.monthlyFee || 0), 0);
 
     // 4 Indicadores KPIs
     const elMrr = document.getElementById('dash-stat-mrr');
@@ -306,6 +310,9 @@ const App = {
           </td>
           <td>
             <span class="chip ${client.status === 'ATIVO' ? 'chip-success' : 'chip-warning'}">${client.status === 'ATIVO' ? 'Ativo' : client.status}</span>
+            <div style="margin-top:4px;">
+              <span class="chip ${client.recurrence === 'ESPORADICO' ? 'chip-muted' : 'chip-info'}" style="font-size:0.68rem;">${client.recurrence === 'ESPORADICO' ? 'Esporádico' : 'Recorrente'}</span>
+            </div>
           </td>
           <td>
             <div style="font-weight:600; font-size:0.85rem;">${client.contactName || '-'}</div>
@@ -364,8 +371,15 @@ const App = {
     this.renderDetailCndTab(client);
     this.renderDetailFinancialTab(client);
     this.renderDetailInteractionsTab(client);
+    this.renderDetailTimeTab(client);
 
     this.switchDetailTab('tab-general');
+
+    // Abre a contagem de tempo para este cliente — roda até a página ser
+    // deixada (js/timeTracking.js cuida de fechar sozinho).
+    if (window.TimeTracker && !TimeTracker.entryId) {
+      TimeTracker.open(client.id);
+    }
   },
 
   switchDetailTab(tabId) {
@@ -391,6 +405,9 @@ const App = {
     document.getElementById('det-gen-trade').textContent = client.tradeName || '-';
     document.getElementById('det-gen-doc').textContent = client.cnpj || client.cpf || '-';
     document.getElementById('det-gen-founding').textContent = Validators.formatDate(client.foundingDate);
+    document.getElementById('det-gen-recurrence').innerHTML = client.recurrence === 'ESPORADICO'
+      ? '<span class="chip chip-muted">Esporádico — sem monitoramento automático</span>'
+      : '<span class="chip chip-info">Recorrente — carteira monitorada</span>';
     document.getElementById('det-gen-contact-name').textContent = client.contactName || '-';
     document.getElementById('det-gen-contact-role').textContent = client.contactRole || '-';
     document.getElementById('det-gen-phones').textContent = client.phones ? client.phones.join(' / ') : '-';
@@ -542,6 +559,46 @@ const App = {
     `;
   },
 
+  async renderDetailTimeTab(client) {
+    const totalEl = document.getElementById('det-time-total');
+    const tbody = document.getElementById('det-time-entries-tbody');
+    if (!totalEl && !tbody) return;
+
+    if (!window.TimeTracker) return;
+
+    const [totalSeconds, history] = await Promise.all([
+      TimeTracker.getTotalSecondsForClient(client.id),
+      TimeTracker.getHistoryForClient(client.id)
+    ]);
+
+    if (totalEl) totalEl.textContent = TimeTracker._formatDuration(Math.floor(totalSeconds));
+
+    if (tbody) {
+      if (history.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma sessão registrada ainda — abra este Dossiê para começar a contar.</td></tr>`;
+      } else {
+        tbody.innerHTML = history.map(entry => {
+          const start = new Date(entry.started_at);
+          const endRef = entry.ended_at || entry.last_heartbeat_at;
+          const end = endRef ? new Date(endRef) : null;
+          const durationSecs = Math.max(0, ((end || new Date()) - start) / 1000);
+          const responsavel = DataStore._profilesById?.[entry.user_id]?.full_name || '-';
+          const situacao = entry.status === 'ABERTO'
+            ? '<span class="chip chip-warning">Em andamento</span>'
+            : '<span class="chip chip-success">Concluída</span>';
+          return `
+            <tr>
+              <td style="font-family:var(--font-mono); font-size:0.8rem;">${start.toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono); font-size:0.8rem;">${end ? end.toLocaleString('pt-BR') : '-'}</td>
+              <td style="font-family:var(--font-mono); font-weight:700;">${TimeTracker._formatDuration(Math.floor(durationSecs))}</td>
+              <td>${responsavel}</td>
+              <td>${situacao}</td>
+            </tr>`;
+        }).join('');
+      }
+    }
+  },
+
   // =========================================================================
   // VIEW: CONFORMIDADE FISCAL (OBRIGAÇÕES)
   // =========================================================================
@@ -592,7 +649,8 @@ const App = {
   // VIEW: CNDs
   // =========================================================================
   renderCNDsView() {
-    const clients = DataStore.getClients().filter(c => c.status === 'ATIVO');
+    // Clientes esporádicos não entram na matriz de monitoramento de CND.
+    const clients = DataStore.getClients().filter(c => c.status === 'ATIVO' && c.recurrence !== 'ESPORADICO');
     const cndTypes = ['federal', 'estadual', 'municipal', 'fgts', 'trabalhista'];
 
     // KPIs da matriz: cada cliente ativo tem até 5 certidões monitoradas
@@ -658,7 +716,9 @@ const App = {
   // VIEW: HONORÁRIOS
   // =========================================================================
   renderFinancialView() {
-    const clients = DataStore.getClients().filter(c => c.status === 'ATIVO');
+    // Página de Honorários (MRR) — só carteira recorrente. Esporádicos têm
+    // valor de serviço avulso, não mensalidade, e aparecem só na Carteira.
+    const clients = DataStore.getClients().filter(c => c.status === 'ATIVO' && c.recurrence !== 'ESPORADICO');
     const totalMRR = clients.reduce((sum, c) => sum + (c.financial?.monthlyFee || 0), 0);
     const count13th = clients.filter(c => c.financial?.has13thFee).length;
 
@@ -792,10 +852,11 @@ const App = {
         document.getElementById('form-trade-name').value = client.tradeName || '';
         document.getElementById('form-cnpj').value = client.cnpj || client.cpf || '';
         document.getElementById('form-founding-date').value = client.foundingDate || '';
-        document.getElementById('form-tax-regime').value = client.taxRegime || 'SIMPLES_NACIONAL';
+        document.getElementById('form-tax-regime').value = client.taxRegime || '';
         document.getElementById('form-company-size').value = client.companySize || 'ME';
         document.getElementById('form-status').value = client.status || 'ATIVO';
         document.getElementById('form-accountant').value = client.responsibleAccountant || 'Voal Consult';
+        document.getElementById('form-recurrence').value = client.recurrence || 'RECORRENTE';
 
         document.getElementById('form-contact-name').value = client.contactName || '';
         document.getElementById('form-contact-role').value = client.contactRole || '';
@@ -926,10 +987,11 @@ const App = {
       tradeName: document.getElementById('form-trade-name').value.trim(),
       cnpj: document.getElementById('form-cnpj').value.trim(),
       foundingDate: document.getElementById('form-founding-date').value,
-      taxRegime: document.getElementById('form-tax-regime').value,
+      taxRegime: document.getElementById('form-tax-regime').value || null,
       companySize: document.getElementById('form-company-size').value,
       status: document.getElementById('form-status').value,
       responsibleAccountant: document.getElementById('form-accountant').value.trim(),
+      recurrence: document.getElementById('form-recurrence').value || 'RECORRENTE',
 
       contactName: document.getElementById('form-contact-name').value.trim(),
       contactRole: document.getElementById('form-contact-role').value.trim(),

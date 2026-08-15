@@ -70,8 +70,9 @@
 
             <div class="grid-row">
               <div class="span-4 field-group">
-                <label>Regime Tributário *</label>
-                <select id="form-tax-regime" class="form-control" required>
+                <label>Regime Tributário</label>
+                <select id="form-tax-regime" class="form-control">
+                  <option value="">— Não definido —</option>
                   <option value="SIMPLES_NACIONAL">Simples Nacional</option>
                   <option value="LUCRO_PRESUMIDO">Lucro Presumido</option>
                   <option value="LUCRO_REAL">Lucro Real</option>
@@ -92,6 +93,16 @@
               <div class="span-4 field-group">
                 <label>Consultor Responsável</label>
                 <input type="text" id="form-accountant" class="form-control" placeholder="Voal Consult">
+              </div>
+            </div>
+
+            <div class="grid-row">
+              <div class="span-12 field-group">
+                <label>Recorrência do Atendimento</label>
+                <select id="form-recurrence" class="form-control">
+                  <option value="RECORRENTE">Recorrente — carteira monitorada (CND, obrigações mensais)</option>
+                  <option value="ESPORADICO">Esporádico — serviço pontual, sem monitoramento automático</option>
+                </select>
               </div>
             </div>
           </div>

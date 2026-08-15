@@ -47,11 +47,17 @@
               </div>
             </div>
           </div>
-          <div class="header-buttons">
-            <button class="btn-figma-secondary" onclick="window.print()">Imprimir Dossiê A4</button>
-            <button class="btn-figma-secondary" id="btn-profile-add-note">Registrar Atendimento</button>
-            <button class="btn-figma-primary" id="btn-profile-edit">Editar Cadastro</button>
-            <button class="btn-figma-secondary" id="btn-profile-delete" style="color:#EF4444; border-color:rgba(239,68,68,0.3);">Excluir</button>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div id="dossie-timer-badge" style="display:flex; align-items:center; gap:6px; background:#ECFDF5; border:1px solid #6EE7B7; color:#047857; padding:6px 12px; border-radius:var(--radius-full); font-family:var(--font-mono); font-weight:700; font-size:0.85rem;" title="Tempo contado nesta sessão enquanto este Dossiê está aberto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span id="dossie-timer">00:00</span>
+            </div>
+            <div class="header-buttons">
+              <button class="btn-figma-secondary" onclick="window.print()">Imprimir Dossiê A4</button>
+              <button class="btn-figma-secondary" id="btn-profile-add-note">Registrar Atendimento</button>
+              <button class="btn-figma-primary" id="btn-profile-edit">Editar Cadastro</button>
+              <button class="btn-figma-secondary" id="btn-profile-delete" style="color:#EF4444; border-color:rgba(239,68,68,0.3);">Excluir</button>
+            </div>
           </div>
         </div>
 
@@ -63,6 +69,7 @@
           <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-cnd" onclick="App.switchDetailTab('tab-cnd')">Matriz CND</button>
           <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-financial" onclick="App.switchDetailTab('tab-financial')">Honorários</button>
           <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-interactions" onclick="App.switchDetailTab('tab-interactions')">Atendimentos</button>
+          <button class="tab-segment-btn btn-figma-secondary" data-tab="tab-time" onclick="App.switchDetailTab('tab-time')">Tempo Trabalhado</button>
         </div>
 
         <!-- Tab: Dados Gerais -->
@@ -75,6 +82,7 @@
                 <div><span style="color:var(--text-muted);">Nome Fantasia:</span> <span id="det-gen-trade">Sabor Paulista Grill</span></div>
                 <div><span style="color:var(--text-muted);">CNPJ / CPF:</span> <span id="det-gen-doc" style="font-family:var(--font-mono);">12.345.678/0001-90</span></div>
                 <div><span style="color:var(--text-muted);">Data de Abertura:</span> <span id="det-gen-founding">15/03/2018</span></div>
+                <div><span style="color:var(--text-muted);">Recorrência:</span> <span id="det-gen-recurrence">-</span></div>
               </div>
             </div>
             <div class="figma-panel">
@@ -279,6 +287,26 @@
           </div>
         </div>
 
+        <!-- Tab: Tempo Trabalhado -->
+        <div id="tab-time" class="tab-pane-view" style="display: none;">
+          <div class="figma-panel-title">Tempo Trabalhado</div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-8px; margin-bottom:16px;">
+            Contagem automática enquanto este Dossiê fica aberto — inclusive o tempo gasto em atendimentos fora do sistema, desde que a página continue aberta. Isso é só medição interna de produtividade; não tem relação com o preço cobrado do cliente.
+          </p>
+          <div class="kpi-card" style="margin-bottom:16px;">
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:4px;">Total registrado para este cliente</div>
+            <div id="det-time-total" style="font-size:1.4rem; font-weight:800; font-family:var(--font-mono); color:var(--text-main);">--:--</div>
+          </div>
+          <div class="table-container">
+            <table class="figma-table">
+              <thead><tr><th>Início</th><th>Fim</th><th>Duração</th><th>Responsável</th><th>Situação</th></tr></thead>
+              <tbody id="det-time-entries-tbody">
+                <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
@@ -287,6 +315,7 @@
   <script src="js/data.js"></script>
   <script src="js/obligations.js"></script>
   <script src="js/modals.js"></script>
+  <script src="js/timeTracking.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -266,7 +266,9 @@ const Rel = {
   },
 
   activeClients() {
-    return DataStore.getClients().filter(c => c.status === 'ATIVO');
+    // Relatórios de honorários/compliance só consideram carteira recorrente
+    // — esporádicos não são monitorados (CND, obrigações) nem contam pra MRR.
+    return DataStore.getClients().filter(c => c.status === 'ATIVO' && c.recurrence !== 'ESPORADICO');
   },
 
   renderKPIs() {

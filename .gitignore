@@ -25,3 +25,9 @@ voal_backup_*.json
 voal_carteira_*.csv
 voal_obrigacoes_*.csv
 voal_cnds_*.csv
+
+# Planilhas/arquivos de trabalho pessoais soltos na pasta do projeto — os
+# dados já foram importados para o Supabase, não precisam ficar no repositório
+*.xlsx
+*.xls
+Roteiros Serviços Prestados*.zip

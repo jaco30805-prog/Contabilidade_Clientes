@@ -142,6 +142,7 @@ const DataStore = {
       updatedAt: row.updated_at,
       status: row.status,
       type: row.type,
+      recurrence: row.recurrence || 'RECORRENTE',
       companyName: row.company_name,
       tradeName: row.trade_name || '',
       cnpj: row.cnpj || '',
@@ -227,13 +228,14 @@ const DataStore = {
 
     const clientRow = {
       status: clientData.status || 'ATIVO',
+      recurrence: clientData.recurrence || 'RECORRENTE',
       company_name: clientData.companyName,
       trade_name: clientData.tradeName || null,
       cnpj: clientData.cnpj || null,
       cpf: clientData.cpf || null,
       state_registration: clientData.stateRegistration || null,
       municipal_registration: clientData.municipalRegistration || null,
-      tax_regime: clientData.taxRegime,
+      tax_regime: clientData.taxRegime || null,
       company_size: clientData.companySize || null,
       founding_date: clientData.foundingDate || null,
       responsible_accountant: clientData.responsibleAccountant || null,

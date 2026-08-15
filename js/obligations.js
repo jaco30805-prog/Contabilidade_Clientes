@@ -58,7 +58,9 @@ const ObligationsManager = {
   // o cache local.
   async syncCompetenceObligations(competence = this.getCurrentCompetence()) {
     try {
-      const clients = (window.DataStore?.getClients() || []).filter(c => c.status === 'ATIVO');
+      // Clientes esporádicos ficam fora do monitoramento automático de
+      // obrigações — só a carteira recorrente gera obrigação mensal.
+      const clients = (window.DataStore?.getClients() || []).filter(c => c.status === 'ATIVO' && c.recurrence !== 'ESPORADICO');
       const catalog = window.DataStore?.DefaultObligationsCatalog || [];
       const [compYear, compMonth] = competence.split('-').map(n => parseInt(n, 10));
 

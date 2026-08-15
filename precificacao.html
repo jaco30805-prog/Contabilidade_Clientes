@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora de Preço — Voal Consult</title>
+  <meta name="description" content="Precificação de serviços contábeis — Voal Consult">
+
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-page="precificacao">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/auth.js"></script>
+
+  <div id="app-container">
+
+    <aside class="sidebar" id="sidebar-mount"></aside>
+    <script src="js/sidebar.js"></script>
+
+    <main class="main-content">
+      <header class="top-header no-print">
+        <div class="header-left">
+          <button class="sidebar-collapse-btn" title="Menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+          </button>
+          <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+            Voal Consult &bull; Calculadora de Preço
+          </div>
+        </div>
+      </header>
+
+      <div class="page-container">
+        <div class="dashboard-header">
+          <div class="dashboard-title">
+            <h1>Calculadora de Preço</h1>
+            <p>Preencha os dados do cliente para chegar a um preço mensal sugerido — combine esse valor com o cliente <strong>antes</strong> de iniciar o serviço. As tabelas de referência abaixo são as mesmas usadas no cálculo, e podem ser ajustadas aqui a qualquer momento.</p>
+          </div>
+        </div>
+
+        <!-- ===================== CALCULADORA ===================== -->
+        <div class="figma-panel" style="margin-bottom:24px;">
+          <div class="figma-panel-title">1. Dados do Cliente / Orçamento</div>
+          <div class="grid-row">
+            <div class="span-12 field-group">
+              <label>Nome do cliente ou lead (opcional, só pra referência)</label>
+              <input type="text" id="pc-nome" class="form-control" placeholder="Ex: Estúdio Zen Estética">
+            </div>
+          </div>
+          <div class="grid-row">
+            <div class="span-4 field-group">
+              <label>Regime tributário</label>
+              <select id="pc-regime" class="form-control"></select>
+            </div>
+            <div class="span-4 field-group">
+              <label>Atividade</label>
+              <select id="pc-atividade" class="form-control"></select>
+            </div>
+            <div class="span-4 field-group">
+              <label>Nível de urgência</label>
+              <select id="pc-urgencia" class="form-control"></select>
+            </div>
+          </div>
+          <div class="grid-row">
+            <div class="span-4 field-group">
+              <label>Nº de funcionários</label>
+              <input type="number" id="pc-funcionarios" class="form-control" value="0" min="0">
+            </div>
+            <div class="span-4 field-group">
+              <label>Volume de Notas Fiscais / mês</label>
+              <input type="number" id="pc-volume-nf" class="form-control" value="0" min="0">
+            </div>
+            <div class="span-4 field-group">
+              <label>Tipo de emissão de NF</label>
+              <select id="pc-tipo-emissao" class="form-control">
+                <option value="automatica">Automatizada</option>
+                <option value="manual">Manual (uma a uma)</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-row">
+            <div class="span-6 field-group">
+              <label>Nº de movimentações financeiras / mês</label>
+              <input type="number" id="pc-movimentacoes" class="form-control" value="0" min="0">
+            </div>
+            <div class="span-6 field-group">
+              <label>Complexidade da atividade</label>
+              <select id="pc-complexidade" class="form-control"></select>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:20px; margin-bottom:24px;" class="pc-result-grid">
+          <div class="figma-panel">
+            <div class="figma-panel-title">2. Composição do Preço</div>
+            <div class="table-container">
+              <table class="figma-table">
+                <thead><tr><th>Componente</th><th style="text-align:right;">Valor (R$/mês)</th></tr></thead>
+                <tbody id="pc-breakdown-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="figma-panel" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:6px;">PREÇO MENSAL SUGERIDO</div>
+            <div id="pc-preco-final" style="font-size:2.4rem; font-weight:800; color:#10B981; font-family:var(--font-mono);">R$ 0,00</div>
+            <div style="font-size:0.75rem; color:var(--text-dim); margin-top:6px;">Combine este valor com o cliente antes de começar o serviço.</div>
+          </div>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:32px;">
+          <div class="figma-panel-title">3. Estimativa de Margem (opcional)</div>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-top:-8px; margin-bottom:14px;">Preencha os custos estimados para este atendimento. Os valores iniciais vêm dos parâmetros gerais (editáveis na tabela de Parâmetros abaixo).</p>
+          <div class="grid-row">
+            <div class="span-3 field-group"><label>Sistemas / softwares (R$)</label><input type="number" id="pc-custo-sistemas" class="form-control" value="0" step="0.01"></div>
+            <div class="span-3 field-group"><label>Mão de obra (R$)</label><input type="number" id="pc-custo-mao-obra" class="form-control" value="0" step="0.01"></div>
+            <div class="span-3 field-group"><label>Custo indireto (R$)</label><input type="number" id="pc-custo-indireto" class="form-control" value="0" step="0.01"></div>
+            <div class="span-3 field-group"><label>Imposto sobre o serviço (%)</label><input type="number" id="pc-imposto" class="form-control" value="6" step="0.1"></div>
+          </div>
+          <div class="grid-row" style="margin-top:8px;">
+            <div class="span-4 kpi-card"><div style="font-size:0.78rem; color:var(--text-muted);">Custo total estimado</div><div id="pc-custo-total" style="font-size:1.2rem; font-weight:700; font-family:var(--font-mono);">R$ 0,00</div></div>
+            <div class="span-4 kpi-card"><div style="font-size:0.78rem; color:var(--text-muted);">Margem estimada</div><div id="pc-margem" style="font-size:1.2rem; font-weight:700; font-family:var(--font-mono); color:#10B981;">R$ 0,00</div></div>
+            <div class="span-4 kpi-card"><div style="font-size:0.78rem; color:var(--text-muted);">Margem (%)</div><div id="pc-margem-pct" style="font-size:1.2rem; font-weight:700; font-family:var(--font-mono);">0%</div></div>
+          </div>
+        </div>
+
+        <!-- ===================== TABELAS DE REFERÊNCIA (EDITÁVEIS) ===================== -->
+        <div style="font-size:1.05rem; font-weight:700; margin-bottom:6px;">Tabelas de Referência da Calculadora</div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:18px;">Ajuste os valores abaixo para recalibrar a calculadora inteira. Cada tabela tem seu próprio botão de salvar.</p>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div class="figma-panel-title">Mensalidade-base (Regime + Atividade)</div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Regime</th><th>Atividade</th><th style="text-align:right;">Valor-base (R$/mês)</th></tr></thead>
+            <tbody id="pc-tbl-base-rates"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveBaseRates()">Salvar Mensalidades-base</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div class="figma-panel-title">Departamento Pessoal — Adicional por Nº de Funcionários</div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Nº de funcionários</th><th style="text-align:right;">Adicional acumulado (R$/mês)</th></tr></thead>
+            <tbody id="pc-tbl-employee-tiers"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveEmployeeTiers()">Salvar Tabela de Funcionários</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div class="figma-panel-title">Volume de Notas Fiscais / mês</div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Tipo</th><th>Faixa</th><th style="text-align:right;">Adicional (R$/mês)</th></tr></thead>
+            <tbody id="pc-tbl-nf-tiers"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveNfTiers()">Salvar Tabela de NF</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div class="figma-panel-title">Movimentação Financeira / mês</div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Faixa</th><th style="text-align:right;">Adicional (R$/mês)</th></tr></thead>
+            <tbody id="pc-tbl-movement-tiers"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveMovementTiers()">Salvar Tabela de Movimentação</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div class="figma-panel-title">Complexidade por Tipo de Atividade</div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Tipo de atividade</th><th style="text-align:right;">Adicional (R$/mês)</th></tr></thead>
+            <tbody id="pc-tbl-complexity"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveComplexity()">Salvar Tabela de Complexidade</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div class="figma-panel-title">Multiplicador de Urgência</div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Nível</th><th style="text-align:right;">Multiplicador</th></tr></thead>
+            <tbody id="pc-tbl-urgency"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveUrgency()">Salvar Multiplicadores</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div class="figma-panel-title">Parâmetros Gerais</div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Parâmetro</th><th style="text-align:right;">Valor</th></tr></thead>
+            <tbody id="pc-tbl-settings"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveSettings()">Salvar Parâmetros</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="figma-panel-title" style="margin-bottom:0;">Serviços Avulsos (referência para clientes esporádicos)</div>
+            <button class="btn-figma-secondary" onclick="Precif.addAvulsoRow()">+ Adicionar</button>
+          </div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Serviço</th><th>Mínimo (R$)</th><th>Máximo (R$)</th><th>Observação</th></tr></thead>
+            <tbody id="pc-tbl-avulso"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveAvulso()">Salvar Serviços Avulsos</button>
+        </div>
+
+        <div class="figma-panel" style="margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="figma-panel-title" style="margin-bottom:0;">Eventos Trabalhistas Avulsos</div>
+            <button class="btn-figma-secondary" onclick="Precif.addEventRow()">+ Adicionar</button>
+          </div>
+          <div class="table-container"><table class="figma-table">
+            <thead><tr><th>Evento</th><th>Mínimo (R$)</th><th>Máximo (R$)</th><th>Observação</th></tr></thead>
+            <tbody id="pc-tbl-events"></tbody>
+          </table></div>
+          <button class="btn-figma-primary" style="margin-top:12px;" onclick="Precif.saveEvents()">Salvar Eventos Trabalhistas</button>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <div id="toast-deck"></div>
+
+  <script src="js/validators.js"></script>
+  <script src="js/pricing.js"></script>
+  <script>
+    const Precif = {
+      async init() {
+        await Pricing.loadAll();
+        this.populateSelects();
+        this.renderReferenceTables();
+        this.bindCalculatorInputs();
+        this.recalculate();
+      },
+
+      populateSelects() {
+        const regimes = [...new Set(Pricing.baseRates.map(r => r.regime))];
+        const atividades = [...new Set(Pricing.baseRates.map(r => r.atividade))];
+        const complexidades = Pricing.complexityAddons.map(c => c.tipo_atividade);
+        const urgencias = Pricing.urgencyMultipliers.map(u => u.nivel);
+
+        const fill = (id, options) => {
+          document.getElementById(id).innerHTML = options.map(o => `<option value="${o}">${o}</option>`).join('');
+        };
+        fill('pc-regime', regimes);
+        fill('pc-atividade', atividades);
+        fill('pc-complexidade', complexidades);
+        fill('pc-urgencia', urgencias);
+      },
+
+      bindCalculatorInputs() {
+        ['pc-regime','pc-atividade','pc-urgencia','pc-funcionarios','pc-volume-nf','pc-tipo-emissao',
+         'pc-movimentacoes','pc-complexidade','pc-custo-sistemas','pc-custo-mao-obra','pc-custo-indireto','pc-imposto']
+          .forEach(id => {
+            document.getElementById(id).addEventListener('input', () => this.recalculate());
+            document.getElementById(id).addEventListener('change', () => this.recalculate());
+          });
+
+        // Preenche custos com os defaults dos Parâmetros Gerais
+        document.getElementById('pc-custo-sistemas').value = Pricing.settings.custo_sistemas_default || 0;
+        document.getElementById('pc-custo-mao-obra').value = Pricing.settings.custo_mao_obra_default || 0;
+        document.getElementById('pc-custo-indireto').value = Pricing.settings.custo_indireto_default || 0;
+        document.getElementById('pc-imposto').value = (Pricing.settings.imposto_servico_padrao || 0) * 100;
+      },
+
+      recalculate() {
+        const input = {
+          regime: document.getElementById('pc-regime').value,
+          atividade: document.getElementById('pc-atividade').value,
+          urgencia: document.getElementById('pc-urgencia').value,
+          funcionarios: document.getElementById('pc-funcionarios').value,
+          volumeNf: document.getElementById('pc-volume-nf').value,
+          tipoEmissao: document.getElementById('pc-tipo-emissao').value,
+          movimentacoes: document.getElementById('pc-movimentacoes').value,
+          complexidade: document.getElementById('pc-complexidade').value,
+          custoSistemas: document.getElementById('pc-custo-sistemas').value,
+          custoMaoObra: document.getElementById('pc-custo-mao-obra').value,
+          custoIndireto: document.getElementById('pc-custo-indireto').value,
+          impostoPct: Number(document.getElementById('pc-imposto').value) / 100
+        };
+
+        const r = Pricing.calculate(input);
+        const fmt = Validators.formatCurrency;
+
+        document.getElementById('pc-breakdown-tbody').innerHTML = `
+          <tr><td>Mensalidade-base (${input.regime} / ${input.atividade})</td><td style="text-align:right;">${fmt(r.baseValue)}</td></tr>
+          <tr><td>Departamento Pessoal (${input.funcionarios} func.)</td><td style="text-align:right;">${fmt(r.dpValue)}</td></tr>
+          <tr><td>Volume de Notas Fiscais</td><td style="text-align:right;">${fmt(r.nfValue)}</td></tr>
+          <tr><td>Movimentação financeira</td><td style="text-align:right;">${fmt(r.movValue)}</td></tr>
+          <tr><td>Complexidade da atividade</td><td style="text-align:right;">${fmt(r.complexValue)}</td></tr>
+          <tr style="font-weight:700; border-top:2px solid var(--border-color);"><td>Subtotal</td><td style="text-align:right;">${fmt(r.subtotal)}</td></tr>
+          <tr><td>Multiplicador de urgência (${input.urgencia})</td><td style="text-align:right;">x${r.multiplicador}</td></tr>
+          <tr><td>Piso mínimo do escritório</td><td style="text-align:right;">${fmt(r.piso)}</td></tr>
+        `;
+        document.getElementById('pc-preco-final').textContent = fmt(r.precoSugerido);
+        document.getElementById('pc-custo-total').textContent = fmt(r.custoTotal);
+        document.getElementById('pc-margem').textContent = fmt(r.margem);
+        document.getElementById('pc-margem-pct').textContent = Math.round(r.margemPct * 100) + '%';
+      },
+
+      renderReferenceTables() {
+        document.getElementById('pc-tbl-base-rates').innerHTML = Pricing.baseRates.map(r => `
+          <tr data-regime="${r.regime}" data-atividade="${r.atividade}">
+            <td>${r.regime}</td><td>${r.atividade}</td>
+            <td style="text-align:right;"><input type="number" class="form-control" style="text-align:right;" value="${r.valor_base}" step="0.01"></td>
+          </tr>`).join('');
+
+        document.getElementById('pc-tbl-employee-tiers').innerHTML = Pricing.employeeTiers.map(t => `
+          <tr data-funcionarios="${t.funcionarios}">
+            <td>${t.funcionarios}</td>
+            <td style="text-align:right;"><input type="number" class="form-control" style="text-align:right;" value="${t.adicional}" step="0.01"></td>
+          </tr>`).join('');
+
+        document.getElementById('pc-tbl-nf-tiers').innerHTML = Pricing.nfTiers.map(t => `
+          <tr data-id="${t.id}">
+            <td>${t.tipo_emissao === 'manual' ? 'Manual' : 'Automatizada'}</td>
+            <td>${t.faixa_label || ''}</td>
+            <td style="text-align:right;"><input type="number" class="form-control" style="text-align:right;" value="${t.adicional}" step="0.01"></td>
+          </tr>`).join('');
+
+        document.getElementById('pc-tbl-movement-tiers').innerHTML = Pricing.movementTiers.map(t => `
+          <tr data-limite-inferior="${t.limite_inferior}">
+            <td>${t.faixa_label || ''}</td>
+            <td style="text-align:right;"><input type="number" class="form-control" style="text-align:right;" value="${t.adicional}" step="0.01"></td>
+          </tr>`).join('');
+
+        document.getElementById('pc-tbl-complexity').innerHTML = Pricing.complexityAddons.map(c => `
+          <tr data-tipo="${c.tipo_atividade}">
+            <td>${c.tipo_atividade}</td>
+            <td style="text-align:right;"><input type="number" class="form-control" style="text-align:right;" value="${c.adicional}" step="0.01"></td>
+          </tr>`).join('');
+
+        document.getElementById('pc-tbl-urgency').innerHTML = Pricing.urgencyMultipliers.map(u => `
+          <tr data-nivel="${u.nivel}">
+            <td>${u.nivel}</td>
+            <td style="text-align:right;"><input type="number" class="form-control" style="text-align:right;" value="${u.multiplicador}" step="0.01"></td>
+          </tr>`).join('');
+
+        document.getElementById('pc-tbl-settings').innerHTML = Pricing.settingsMeta.map(s => `
+          <tr data-key="${s.key}">
+            <td>${s.label || s.key}</td>
+            <td style="text-align:right;"><input type="number" class="form-control" style="text-align:right;" value="${s.value}" step="0.0001"></td>
+          </tr>`).join('');
+
+        this._renderMinMaxTable('pc-tbl-avulso', Pricing.avulsoServices, 'servico');
+        this._renderMinMaxTable('pc-tbl-events', Pricing.employmentEvents, 'evento');
+      },
+
+      _renderMinMaxTable(tbodyId, rows, nameField) {
+        document.getElementById(tbodyId).innerHTML = rows.map(r => `
+          <tr data-id="${r.id}">
+            <td><input type="text" class="form-control" data-field="${nameField}" value="${(r[nameField] || '').replace(/"/g, '&quot;')}"></td>
+            <td><input type="number" class="form-control" data-field="valor_minimo" value="${r.valor_minimo ?? ''}" step="0.01"></td>
+            <td><input type="number" class="form-control" data-field="valor_maximo" value="${r.valor_maximo ?? ''}" step="0.01"></td>
+            <td><input type="text" class="form-control" data-field="observacao" value="${(r.observacao || '').replace(/"/g, '&quot;')}"></td>
+          </tr>`).join('');
+      },
+
+      addAvulsoRow() {
+        const tbody = document.getElementById('pc-tbl-avulso');
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr data-id="${crypto.randomUUID()}">
+            <td><input type="text" class="form-control" data-field="servico" value=""></td>
+            <td><input type="number" class="form-control" data-field="valor_minimo" value="" step="0.01"></td>
+            <td><input type="number" class="form-control" data-field="valor_maximo" value="" step="0.01"></td>
+            <td><input type="text" class="form-control" data-field="observacao" value=""></td>
+          </tr>`);
+      },
+
+      addEventRow() {
+        const tbody = document.getElementById('pc-tbl-events');
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr data-id="${crypto.randomUUID()}">
+            <td><input type="text" class="form-control" data-field="evento" value=""></td>
+            <td><input type="number" class="form-control" data-field="valor_minimo" value="" step="0.01"></td>
+            <td><input type="number" class="form-control" data-field="valor_maximo" value="" step="0.01"></td>
+            <td><input type="text" class="form-control" data-field="observacao" value=""></td>
+          </tr>`);
+      },
+
+      async _saveAndReload(promise, label) {
+        const { error } = await promise;
+        if (error) {
+          this.toast(`Erro ao salvar ${label}: ${error.message}`, 'danger');
+          return;
+        }
+        this.toast(`${label} salvo(a) com sucesso!`, 'success');
+        await Pricing.loadAll();
+        this.populateSelects();
+        this.renderReferenceTables();
+        this.recalculate();
+      },
+
+      saveBaseRates() {
+        const rows = [...document.querySelectorAll('#pc-tbl-base-rates tr')].map(tr => ({
+          regime: tr.dataset.regime,
+          atividade: tr.dataset.atividade,
+          valor_base: Number(tr.querySelector('input').value) || 0
+        }));
+        this._saveAndReload(sb.from('pricing_base_rates').upsert(rows, { onConflict: 'regime,atividade' }), 'Mensalidades-base');
+      },
+
+      saveEmployeeTiers() {
+        const rows = [...document.querySelectorAll('#pc-tbl-employee-tiers tr')].map(tr => ({
+          funcionarios: Number(tr.dataset.funcionarios),
+          adicional: Number(tr.querySelector('input').value) || 0
+        }));
+        this._saveAndReload(sb.from('pricing_employee_tiers').upsert(rows, { onConflict: 'funcionarios' }), 'Tabela de Funcionários');
+      },
+
+      saveNfTiers() {
+        const rows = [...document.querySelectorAll('#pc-tbl-nf-tiers tr')].map(tr => ({
+          id: tr.dataset.id,
+          adicional: Number(tr.querySelector('input').value) || 0
+        }));
+        this._saveAndReload(sb.from('pricing_nf_tiers').upsert(rows, { onConflict: 'id' }), 'Tabela de NF');
+      },
+
+      saveMovementTiers() {
+        const rows = [...document.querySelectorAll('#pc-tbl-movement-tiers tr')].map(tr => ({
+          limite_inferior: Number(tr.dataset.limiteInferior),
+          adicional: Number(tr.querySelector('input').value) || 0
+        }));
+        this._saveAndReload(sb.from('pricing_movement_tiers').upsert(rows, { onConflict: 'limite_inferior' }), 'Tabela de Movimentação');
+      },
+
+      saveComplexity() {
+        const rows = [...document.querySelectorAll('#pc-tbl-complexity tr')].map(tr => ({
+          tipo_atividade: tr.dataset.tipo,
+          adicional: Number(tr.querySelector('input').value) || 0
+        }));
+        this._saveAndReload(sb.from('pricing_complexity_addons').upsert(rows, { onConflict: 'tipo_atividade' }), 'Tabela de Complexidade');
+      },
+
+      saveUrgency() {
+        const rows = [...document.querySelectorAll('#pc-tbl-urgency tr')].map(tr => ({
+          nivel: tr.dataset.nivel,
+          multiplicador: Number(tr.querySelector('input').value) || 1
+        }));
+        this._saveAndReload(sb.from('pricing_urgency_multipliers').upsert(rows, { onConflict: 'nivel' }), 'Multiplicadores de Urgência');
+      },
+
+      saveSettings() {
+        const rows = [...document.querySelectorAll('#pc-tbl-settings tr')].map(tr => ({
+          key: tr.dataset.key,
+          value: Number(tr.querySelector('input').value) || 0
+        }));
+        this._saveAndReload(sb.from('pricing_settings').upsert(rows, { onConflict: 'key' }), 'Parâmetros Gerais');
+      },
+
+      _collectMinMaxRows(tbodyId) {
+        return [...document.querySelectorAll(`#${tbodyId} tr`)].map(tr => {
+          const get = field => tr.querySelector(`[data-field="${field}"]`)?.value;
+          return {
+            id: tr.dataset.id,
+            servico: get('servico'),
+            evento: get('evento'),
+            valor_minimo: get('valor_minimo') === '' ? null : Number(get('valor_minimo')),
+            valor_maximo: get('valor_maximo') === '' ? null : Number(get('valor_maximo')),
+            observacao: get('observacao') || null
+          };
+        });
+      },
+
+      saveAvulso() {
+        const rows = this._collectMinMaxRows('pc-tbl-avulso').map(r => ({
+          id: r.id, servico: r.servico, valor_minimo: r.valor_minimo, valor_maximo: r.valor_maximo, observacao: r.observacao
+        })).filter(r => r.servico && r.servico.trim());
+        this._saveAndReload(sb.from('pricing_avulso_services').upsert(rows, { onConflict: 'id' }), 'Serviços Avulsos');
+      },
+
+      saveEvents() {
+        const rows = this._collectMinMaxRows('pc-tbl-events').map(r => ({
+          id: r.id, evento: r.evento, valor_minimo: r.valor_minimo, valor_maximo: r.valor_maximo, observacao: r.observacao
+        })).filter(r => r.evento && r.evento.trim());
+        this._saveAndReload(sb.from('pricing_employment_events').upsert(rows, { onConflict: 'id' }), 'Eventos Trabalhistas');
+      },
+
+      toast(message, type = 'info') {
+        let container = document.getElementById('toast-deck');
+        const toast = document.createElement('div');
+        toast.className = `toast-pill-voal toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'all 0.3s ease';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const authOk = await Auth.init();
+      if (!authOk) return;
+      window.Sidebar?.applyAuthenticatedUser();
+      await Precif.init();
+    });
+  </script>
+</body>
+</html>
