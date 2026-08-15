@@ -218,9 +218,11 @@ const Validators = {
     }
   },
 
-  // Buscar dados cadastrais via CNPJ (BrasilAPI — espelho público da Receita
-  // Federal, gratuito e sem necessidade de chave/credencial).
-  async fetchCNPJData(cnpj) {
+  // Chamada crua à BrasilAPI (espelho público da Receita Federal, gratuito
+  // e sem necessidade de chave/credencial) — usada tanto pelo autofill de
+  // cadastro (fetchCNPJData) quanto pela verificação de Simples/MEI
+  // (checkSimplesStatus), sem duplicar validação/tratamento de erro.
+  async _fetchReceitaCNPJ(cnpj) {
     const clean = this.onlyNumbers(cnpj);
     if (clean.length !== 14) {
       throw new Error('CNPJ deve conter 14 dígitos.');
@@ -243,7 +245,12 @@ const Validators = {
       throw new Error(body?.message
         || (res.status === 404 ? 'CNPJ não encontrado na Receita Federal.' : 'Falha ao consultar CNPJ na Receita Federal.'));
     }
-    const data = await res.json();
+    return res.json();
+  },
+
+  // Buscar dados cadastrais via CNPJ pra autopreencher o cadastro de cliente.
+  async fetchCNPJData(cnpj) {
+    const data = await this._fetchReceitaCNPJ(cnpj);
 
     // Ano mais recente do histórico de escrituração (ECF) é a melhor pista
     // pública disponível para Lucro Real x Presumido — a API não expõe o
@@ -290,6 +297,24 @@ const Validators = {
         cpf: s.cnpj_cpf_do_socio || '',
         isAdmin: /administr|presidente|titular|s[oó]cio-ger/i.test(s.qualificacao_socio || '')
       }))
+    };
+  },
+
+  // Verifica se o CNPJ continua optante pelo Simples Nacional / MEI.
+  // Usa a mesma base pública da Receita (Cadastro Nacional de Pessoa
+  // Jurídica) do autofill — NÃO é a consulta "ao vivo" do portal oficial
+  // (essa exige captcha, sem API sem contratar provedor pago), então pode
+  // ter alguma defasagem em relação ao portal. Serve pra pegar exclusão que
+  // passou despercebida, não substitui a certidão oficial em caso de dúvida.
+  async checkSimplesStatus(cnpj) {
+    const data = await this._fetchReceitaCNPJ(cnpj);
+    return {
+      companyName: data.razao_social || '',
+      situacaoCadastral: data.descricao_situacao_cadastral || '',
+      isSimples: data.opcao_pelo_simples === true,
+      isMei: data.opcao_pelo_mei === true,
+      dataExclusaoSimples: data.data_exclusao_do_simples || null,
+      dataExclusaoMei: data.data_exclusao_do_mei || null
     };
   }
 };

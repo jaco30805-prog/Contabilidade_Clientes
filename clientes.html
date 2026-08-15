@@ -48,6 +48,10 @@
             <p id="clients-filtered-count">Mostrando 6 empresa(s) na carteira da Voal Consult</p>
           </div>
           <div class="header-buttons">
+            <button class="btn-figma-secondary" onclick="App.checkSimplesNacionalPortfolio()" id="btn-check-simples" title="Confere na Receita Federal se os clientes cadastrados como Simples Nacional/MEI continuam optantes">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+              Verificar Simples Nacional
+            </button>
             <button class="btn-figma-secondary" onclick="window.location.href='configuracoes.html'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               Exportar CSV
@@ -74,6 +78,27 @@
             <option value="IMPLANTACAO">Em Implantação</option>
             <option value="SUSPENSO">Suspenso</option>
           </select>
+        </div>
+
+        <div id="simples-check-panel" class="table-container" style="display:none; margin-bottom:18px;">
+          <div style="padding:14px 18px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--border-color);">
+            <div>
+              <strong style="font-size:0.85rem;">Verificação de Regime — Simples Nacional / MEI</strong>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;" id="simples-check-subtitle"></div>
+            </div>
+            <button class="btn-figma-secondary" style="font-size:0.72rem; padding:4px 8px;" onclick="document.getElementById('simples-check-panel').style.display='none'">Fechar</button>
+          </div>
+          <table class="figma-table">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th>Regime Cadastrado</th>
+                <th>Situação na Receita</th>
+                <th>Resultado</th>
+              </tr>
+            </thead>
+            <tbody id="simples-check-tbody"></tbody>
+          </table>
         </div>
 
         <div class="table-container">

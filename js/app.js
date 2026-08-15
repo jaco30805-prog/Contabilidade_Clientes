@@ -1015,6 +1015,86 @@ const App = {
     }
   },
 
+  // Confere na Receita Federal (mesma base pública usada no autofill de
+  // CNPJ) se os clientes cadastrados como Simples Nacional/MEI continuam
+  // optantes — só esses dois regimes correm risco de exclusão sem o
+  // escritório perceber; Lucro Real/Presumido não entra na varredura.
+  async checkSimplesNacionalPortfolio() {
+    const btn = document.getElementById('btn-check-simples');
+    const panel = document.getElementById('simples-check-panel');
+    const tbody = document.getElementById('simples-check-tbody');
+    const subtitle = document.getElementById('simples-check-subtitle');
+    if (!panel || !tbody) return;
+
+    const targets = DataStore.getClients().filter(c =>
+      c.status === 'ATIVO' && c.recurrence !== 'ESPORADICO' && c.cnpj &&
+      (c.taxRegime === 'SIMPLES_NACIONAL' || c.taxRegime === 'MEI')
+    );
+
+    if (targets.length === 0) {
+      this.showToast('Nenhum cliente ativo cadastrado como Simples Nacional ou MEI para verificar.', 'info');
+      return;
+    }
+
+    panel.style.display = 'block';
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Consultando ${targets.length} empresa(s) na Receita Federal...</td></tr>`;
+    if (btn) btn.disabled = true;
+
+    const regimeLabel = { SIMPLES_NACIONAL: 'Simples Nacional', MEI: 'MEI' };
+    const rows = [];
+    let divergentes = 0;
+
+    for (const client of targets) {
+      try {
+        const result = await Validators.checkSimplesStatus(client.cnpj);
+        const aindaOptante = client.taxRegime === 'MEI' ? result.isMei : result.isSimples;
+        const dataExclusao = client.taxRegime === 'MEI' ? result.dataExclusaoMei : result.dataExclusaoSimples;
+        if (!aindaOptante) divergentes++;
+        rows.push({
+          name: client.companyName || client.tradeName || client.cnpj,
+          cadastrado: regimeLabel[client.taxRegime],
+          situacaoReceita: aindaOptante
+            ? regimeLabel[client.taxRegime]
+            : `Fora do ${regimeLabel[client.taxRegime]}${dataExclusao ? ' desde ' + Validators.formatDate(dataExclusao) : ''}`,
+          resultado: aindaOptante ? 'confirmado' : 'divergente'
+        });
+      } catch (err) {
+        rows.push({
+          name: client.companyName || client.tradeName || client.cnpj,
+          cadastrado: regimeLabel[client.taxRegime],
+          situacaoReceita: err.message || 'Falha na consulta.',
+          resultado: 'erro'
+        });
+      }
+      // Pequeno intervalo entre chamadas — API pública e gratuita, sem
+      // motivo pra martelar em sequência numa carteira grande.
+      await new Promise(r => setTimeout(r, 350));
+    }
+
+    const resultChip = {
+      confirmado: '<span class="chip chip-success">Confirmado</span>',
+      divergente: '<span class="chip chip-danger">Divergente</span>',
+      erro: '<span class="chip chip-warning">Erro na consulta</span>'
+    };
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.name}</td>
+        <td>${r.cadastrado}</td>
+        <td>${r.situacaoReceita}</td>
+        <td>${resultChip[r.resultado]}</td>
+      </tr>
+    `).join('');
+
+    subtitle.textContent = divergentes > 0
+      ? `${divergentes} de ${targets.length} cliente(s) não confirmados no regime cadastrado — confira antes de fechar a apuração.`
+      : `${targets.length} cliente(s) verificados — todos confirmados no regime cadastrado. Fonte: cadastro público da Receita Federal (BrasilAPI); pode ter defasagem em relação ao portal oficial do Simples Nacional.`;
+
+    if (btn) btn.disabled = false;
+    this.showToast(divergentes > 0
+      ? `Atenção: ${divergentes} cliente(s) com regime divergente da Receita.`
+      : 'Verificação concluída — nenhuma divergência encontrada.', divergentes > 0 ? 'danger' : 'success');
+  },
+
   async saveClientForm(e) {
     e.preventDefault();
     const clientId = document.getElementById('client-form-id').value;
