@@ -277,6 +277,11 @@ const Validators = {
       tradeName: data.nome_fantasia || '',
       foundingDate: data.data_inicio_atividade || '',
       situacao: data.descricao_situacao_cadastral || '',
+      naturezaJuridica: data.natureza_juridica || '',
+      capitalSocial: typeof data.capital_social === 'number' ? data.capital_social : null,
+      // A BrasilAPI expõe o porte só em "porte" (texto, ex.: "DEMAIS",
+      // "MICRO EMPRESA") — não existe campo "descricao_porte" na resposta.
+      porteDescricao: data.porte || '',
       taxRegimeGuess,
       companySizeGuess,
       cnaeCode: data.cnae_fiscal ? String(data.cnae_fiscal) : '',

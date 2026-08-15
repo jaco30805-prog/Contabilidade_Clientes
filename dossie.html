@@ -106,6 +106,49 @@
               </div>
             </div>
           </div>
+
+          <!-- Retrato salvo da última consulta à Receita Federal (autofill de
+               CNPJ + verificação de Simples Nacional/MEI) — persistido no
+               cliente, não só exibido na hora da consulta e descartado. -->
+          <div class="figma-panel" style="margin-top:20px;">
+            <div class="figma-panel-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Dados da Receita Federal</span>
+              <button class="btn-figma-secondary" style="font-size:0.75rem; padding:4px 10px;" onclick="App.refreshReceitaSnapshot()" id="btn-refresh-receita">Atualizar agora</button>
+            </div>
+            <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-top:4px;">
+              <div style="font-size:0.85rem;">
+                <div style="color:var(--text-muted);">Situação Cadastral</div>
+                <div id="det-receita-situacao" style="font-weight:600; margin-top:4px;">Nunca consultado</div>
+              </div>
+              <div style="font-size:0.85rem;">
+                <div style="color:var(--text-muted);">Natureza Jurídica</div>
+                <div id="det-receita-natureza" style="font-weight:600; margin-top:4px;">-</div>
+              </div>
+              <div style="font-size:0.85rem;">
+                <div style="color:var(--text-muted);">Capital Social</div>
+                <div id="det-receita-capital" style="font-weight:600; margin-top:4px;">-</div>
+              </div>
+              <div style="font-size:0.85rem;">
+                <div style="color:var(--text-muted);">Porte (Receita)</div>
+                <div id="det-receita-porte" style="font-weight:600; margin-top:4px;">-</div>
+              </div>
+            </div>
+            <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-top:14px;">
+              <div style="font-size:0.85rem;">
+                <div style="color:var(--text-muted);">Regime — Simples/MEI</div>
+                <div id="det-receita-simples" style="font-weight:600; margin-top:4px;">-</div>
+              </div>
+              <div style="font-size:0.85rem;">
+                <div style="color:var(--text-muted);">Última sincronização de cadastro</div>
+                <div id="det-receita-sync" style="font-weight:600; margin-top:4px;">-</div>
+              </div>
+              <div style="font-size:0.85rem;">
+                <div style="color:var(--text-muted);">Última verificação Simples/MEI</div>
+                <div id="det-receita-simples-check" style="font-weight:600; margin-top:4px;">-</div>
+              </div>
+            </div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:14px;">Fonte: cadastro público da Receita Federal (BrasilAPI). Pode ter defasagem em relação aos portais oficiais — não substitui certidão oficial em caso de dúvida.</div>
+          </div>
         </div>
 
         <!-- Tab: Fiscal -->

@@ -420,6 +420,81 @@ const App = {
     document.getElementById('det-addr-neighborhood').textContent = addr.neighborhood || '-';
     document.getElementById('det-addr-city').textContent = `${addr.city || '-'} / ${addr.state || '-'}`;
     document.getElementById('det-addr-cep').textContent = addr.cep ? Validators.formatCEP(addr.cep) : '-';
+
+    this.renderDetailReceitaPanel(client);
+  },
+
+  // Painel "Dados da Receita Federal" — mostra o retrato salvo da última
+  // consulta de CNPJ e/ou verificação de Simples Nacional/MEI. Some campo
+  // nenhum some depois que a página recarrega: fica gravado no cliente.
+  renderDetailReceitaPanel(client) {
+    const receita = client.receita || {};
+    const simples = client.simplesCheck || {};
+    const formatDateTime = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : null;
+
+    document.getElementById('det-receita-situacao').innerHTML = receita.situacaoCadastral
+      ? (receita.situacaoCadastral === 'ATIVA'
+          ? `<span class="chip chip-success">${receita.situacaoCadastral}</span>`
+          : `<span class="chip chip-danger">${receita.situacaoCadastral}</span>`)
+      : 'Nunca consultado';
+    document.getElementById('det-receita-natureza').textContent = receita.naturezaJuridica || '-';
+    document.getElementById('det-receita-capital').textContent = typeof receita.capitalSocial === 'number'
+      ? Validators.formatCurrency(receita.capitalSocial)
+      : '-';
+    document.getElementById('det-receita-porte').textContent = receita.porteDescricao || '-';
+    document.getElementById('det-receita-sync').textContent = formatDateTime(receita.lastSyncedAt) || 'Nunca sincronizado';
+
+    if (!simples.situacao) {
+      document.getElementById('det-receita-simples').innerHTML = '<span class="chip chip-muted">Não verificado</span>';
+    } else if (simples.situacao === 'CONFIRMADO') {
+      document.getElementById('det-receita-simples').innerHTML = '<span class="chip chip-success">Confirmado</span>';
+    } else {
+      document.getElementById('det-receita-simples').innerHTML = `<span class="chip chip-danger">Divergente${simples.dataExclusao ? ' — fora desde ' + Validators.formatDate(simples.dataExclusao) : ''}</span>`;
+    }
+    document.getElementById('det-receita-simples-check').textContent = formatDateTime(simples.checkedAt) || 'Nunca verificado';
+  },
+
+  // Botão "Atualizar agora" do painel da Receita Federal — refaz a consulta
+  // de CNPJ (e, se aplicável, a verificação de Simples/MEI) só pra este
+  // cliente e grava direto, sem precisar abrir o formulário de edição.
+  async refreshReceitaSnapshot() {
+    const client = DataStore.getClientById(this.selectedClientId);
+    if (!client) return;
+    if (!client.cnpj) {
+      this.showToast('Esse cliente não tem CNPJ cadastrado — a consulta é só para pessoa jurídica.', 'info');
+      return;
+    }
+
+    const btn = document.getElementById('btn-refresh-receita');
+    if (btn) { btn.disabled = true; btn.textContent = 'Consultando...'; }
+
+    try {
+      const data = await Validators.fetchCNPJData(client.cnpj);
+      await DataStore.saveReceitaSnapshot(client.id, {
+        situacaoCadastral: data.situacao,
+        naturezaJuridica: data.naturezaJuridica,
+        capitalSocial: data.capitalSocial,
+        porteDescricao: data.porteDescricao,
+        lastSyncedAt: new Date().toISOString()
+      });
+
+      if (client.taxRegime === 'SIMPLES_NACIONAL' || client.taxRegime === 'MEI') {
+        const simplesResult = await Validators.checkSimplesStatus(client.cnpj);
+        const aindaOptante = client.taxRegime === 'MEI' ? simplesResult.isMei : simplesResult.isSimples;
+        await DataStore.saveSimplesCheckResult(client.id, {
+          situacao: aindaOptante ? 'CONFIRMADO' : 'DIVERGENTE',
+          dataExclusao: client.taxRegime === 'MEI' ? simplesResult.dataExclusaoMei : simplesResult.dataExclusaoSimples,
+          checkedAt: new Date().toISOString()
+        });
+      }
+
+      this.renderDetailReceitaPanel(DataStore.getClientById(client.id));
+      this.showToast('Dados da Receita Federal atualizados.', 'success');
+    } catch (err) {
+      this.showToast(err.message || 'Não foi possível consultar a Receita Federal agora.', 'danger');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Atualizar agora'; }
+    }
   },
 
   renderDetailFiscalTab(client) {
@@ -843,6 +918,11 @@ const App = {
     const form = document.getElementById('client-form');
     if (!modal || !form) return;
 
+    // Retrato da Receita de uma consulta anterior não pode vazar pra um
+    // cadastro diferente aberto em seguida — só é reaproveitado se a mesma
+    // consulta acontecer de novo dentro desta abertura do modal.
+    this._pendingReceitaData = null;
+
     form.reset();
     document.getElementById('modal-client-title').textContent = clientId ? 'Editar Cadastro de Cliente' : 'Novo Cadastro de Cliente — Voal Consult';
     document.getElementById('client-form-id').value = clientId || '';
@@ -1008,6 +1088,20 @@ const App = {
       }
     }
 
+    // Guardado à parte (não é campo do formulário) pra ir junto no próximo
+    // "Salvar Cadastro" — é isso que fica de fato gravado no cliente em vez
+    // de só aparecer na tela e sumir. Ver saveClientForm().
+    this._pendingReceitaData = {
+      situacaoCadastral: data.situacao,
+      naturezaJuridica: data.naturezaJuridica,
+      capitalSocial: data.capitalSocial,
+      porteDescricao: data.porteDescricao,
+      lastSyncedAt: new Date().toISOString(),
+      // CNPJ que gerou esse retrato — se a pessoa mudar o CNPJ no campo
+      // antes de salvar, esse retrato "velho" não pode ir junto por engano.
+      _forCnpj: Validators.onlyNumbers(document.getElementById('form-cnpj').value)
+    };
+
     if (data.situacao && data.situacao !== 'ATIVA') {
       this.showToast(`Atenção: situação cadastral na Receita Federal é "${data.situacao}".`, 'danger');
     } else {
@@ -1043,6 +1137,7 @@ const App = {
     const regimeLabel = { SIMPLES_NACIONAL: 'Simples Nacional', MEI: 'MEI' };
     const rows = [];
     let divergentes = 0;
+    let falhasAoSalvar = 0;
 
     for (const client of targets) {
       try {
@@ -1050,6 +1145,21 @@ const App = {
         const aindaOptante = client.taxRegime === 'MEI' ? result.isMei : result.isSimples;
         const dataExclusao = client.taxRegime === 'MEI' ? result.dataExclusaoMei : result.dataExclusaoSimples;
         if (!aindaOptante) divergentes++;
+
+        // Grava no cliente assim que a checagem termina — não pode
+        // depender de alguém abrir o cadastro e clicar em "Salvar" depois,
+        // senão o resultado se perde ao recarregar a página.
+        try {
+          await DataStore.saveSimplesCheckResult(client.id, {
+            situacao: aindaOptante ? 'CONFIRMADO' : 'DIVERGENTE',
+            dataExclusao,
+            checkedAt: new Date().toISOString()
+          });
+        } catch (saveErr) {
+          falhasAoSalvar++;
+          console.error('Falha ao salvar resultado da checagem de Simples:', client.id, saveErr);
+        }
+
         rows.push({
           name: client.companyName || client.tradeName || client.cnpj,
           cadastrado: regimeLabel[client.taxRegime],
@@ -1085,14 +1195,18 @@ const App = {
       </tr>
     `).join('');
 
-    subtitle.textContent = divergentes > 0
+    const avisoFalhaSalvar = falhasAoSalvar > 0
+      ? ` (${falhasAoSalvar} resultado(s) não foi possível gravar no cadastro — tente de novo)`
+      : '';
+    subtitle.textContent = (divergentes > 0
       ? `${divergentes} de ${targets.length} cliente(s) não confirmados no regime cadastrado — confira antes de fechar a apuração.`
-      : `${targets.length} cliente(s) verificados — todos confirmados no regime cadastrado. Fonte: cadastro público da Receita Federal (BrasilAPI); pode ter defasagem em relação ao portal oficial do Simples Nacional.`;
+      : `${targets.length} cliente(s) verificados — todos confirmados no regime cadastrado. Fonte: cadastro público da Receita Federal (BrasilAPI); pode ter defasagem em relação ao portal oficial do Simples Nacional.`)
+      + avisoFalhaSalvar;
 
     if (btn) btn.disabled = false;
     this.showToast(divergentes > 0
-      ? `Atenção: ${divergentes} cliente(s) com regime divergente da Receita.`
-      : 'Verificação concluída — nenhuma divergência encontrada.', divergentes > 0 ? 'danger' : 'success');
+      ? `Atenção: ${divergentes} cliente(s) com regime divergente da Receita.${avisoFalhaSalvar}`
+      : `Verificação concluída — nenhuma divergência encontrada.${avisoFalhaSalvar}`, divergentes > 0 || falhasAoSalvar > 0 ? 'danger' : 'success');
   },
 
   async saveClientForm(e) {
@@ -1173,10 +1287,17 @@ const App = {
       }
     };
 
+    // Retrato da Receita Federal (autofill de CNPJ) só vai junto se ainda
+    // for do mesmo CNPJ que está no campo agora — ver applyCNPJData().
+    if (this._pendingReceitaData && this._pendingReceitaData._forCnpj === Validators.onlyNumbers(clientData.cnpj)) {
+      clientData.receita = this._pendingReceitaData;
+    }
+
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Salvando...'; }
 
     try {
       const saved = await DataStore.upsertClient(clientData);
+      this._pendingReceitaData = null;
       await ObligationsManager.syncCompetenceObligations(this.selectedCompetence);
       this.closeAllModals();
       this.showToast(`Cliente ${saved.companyName || 'salvo'} com sucesso!`, 'success');

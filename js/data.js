@@ -204,6 +204,23 @@ const DataStore = {
         feeNotes: fin.fee_notes || ''
       },
 
+      // Retrato da última consulta à Receita Federal (autofill de CNPJ e/ou
+      // verificação de Simples Nacional/MEI) — persistido, não só exibido
+      // na hora e descartado. receitaLastSyncedAt/simplesCheckedAt nulos
+      // significam "nunca consultado".
+      receita: {
+        situacaoCadastral: row.receita_situacao_cadastral || '',
+        naturezaJuridica: row.receita_natureza_juridica || '',
+        capitalSocial: row.receita_capital_social,
+        porteDescricao: row.receita_porte_descricao || '',
+        lastSyncedAt: row.receita_last_synced_at || null
+      },
+      simplesCheck: {
+        situacao: row.simples_situacao || null,
+        dataExclusao: row.simples_data_exclusao || null,
+        checkedAt: row.simples_checked_at || null
+      },
+
       cnds: cndsByType,
       interactions
     };
@@ -252,6 +269,18 @@ const DataStore = {
       simples_code: clientData.accessKeys?.simplesCode || null,
       access_notes: clientData.accessKeys?.notes || null
     };
+
+    // Retrato da Receita Federal só é incluído quando veio junto (ex.: CNPJ
+    // consultado agora mesmo no formulário de cadastro novo) — omitir a
+    // chave, em vez de mandar null, evita apagar um retrato salvo antes por
+    // uma edição que não passou pela consulta de novo.
+    if (clientData.receita) {
+      clientRow.receita_situacao_cadastral = clientData.receita.situacaoCadastral || null;
+      clientRow.receita_natureza_juridica = clientData.receita.naturezaJuridica || null;
+      clientRow.receita_capital_social = clientData.receita.capitalSocial ?? null;
+      clientRow.receita_porte_descricao = clientData.receita.porteDescricao || null;
+      clientRow.receita_last_synced_at = clientData.receita.lastSyncedAt || new Date().toISOString();
+    }
 
     let clientId = clientData.id;
 
@@ -386,6 +415,35 @@ const DataStore = {
     const { error } = await sb.from('clients').delete().eq('id', id);
     if (error) throw error;
     this._clients = this._clients.filter(c => c.id !== id);
+  },
+
+  // Grava o retrato da Receita Federal (situação cadastral, natureza
+  // jurídica, capital social, porte) direto no cliente já existente — usado
+  // pelo botão "Atualizar agora" do Dossiê, fora do fluxo do formulário.
+  async saveReceitaSnapshot(clientId, receita) {
+    const { error } = await sb.from('clients').update({
+      receita_situacao_cadastral: receita.situacaoCadastral || null,
+      receita_natureza_juridica: receita.naturezaJuridica || null,
+      receita_capital_social: receita.capitalSocial ?? null,
+      receita_porte_descricao: receita.porteDescricao || null,
+      receita_last_synced_at: receita.lastSyncedAt || new Date().toISOString()
+    }).eq('id', clientId);
+    if (error) throw error;
+    await this._refetchClient(clientId);
+  },
+
+  // Grava o resultado da verificação de Simples Nacional/MEI assim que a
+  // consulta termina — não pode depender da pessoa clicar em "Salvar
+  // Cadastro" depois, senão o resultado da checagem em lote se perde ao
+  // recarregar a página.
+  async saveSimplesCheckResult(clientId, result) {
+    const { error } = await sb.from('clients').update({
+      simples_situacao: result.situacao || null,
+      simples_data_exclusao: result.dataExclusao || null,
+      simples_checked_at: result.checkedAt || new Date().toISOString()
+    }).eq('id', clientId);
+    if (error) throw error;
+    await this._refetchClient(clientId);
   },
 
   async addInteraction(clientId, interaction) {
