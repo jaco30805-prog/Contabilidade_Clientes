@@ -8,7 +8,7 @@
  * cliente); o que resta é só o checklist de documentos que o roteiro pede.
  */
 const AvulsoServices = {
-  MODULO_LABELS: { BASICO: 'Módulo Básico', MEDIO: 'Módulo Médio', AVANCADO: 'Módulo Avançado' },
+  MODULO_LABELS: { BASICO: 'Básico', MEDIO: 'Médio', AVANCADO: 'Avançado' },
   STATUS_LABELS: {
     NOVO: { label: 'Novo', chip: 'chip-info' },
     EM_ANDAMENTO: { label: 'Em Andamento', chip: 'chip-warning' },
@@ -16,6 +16,10 @@ const AvulsoServices = {
     CONCLUIDO: { label: 'Concluído', chip: 'chip-success' },
     CANCELADO: { label: 'Cancelado', chip: 'chip-danger' }
   },
+  // Prioridade de exibição no pipeline (Épico C, PRD 16/08/2026) — o que
+  // está em andamento sobe pro topo, concluído/cancelado desce pro fim.
+  // Não é mais ordenado só por data de criação.
+  STATUS_SORT_PRIORITY: { EM_ANDAMENTO: 0, AGUARDANDO_CLIENTE: 1, NOVO: 2, CONCLUIDO: 3, CANCELADO: 4 },
 
   render() {
     this.renderKpis();
@@ -40,38 +44,67 @@ const AvulsoServices = {
     set('avulso-stat-concluidas-mes', concluidasMes.length);
   },
 
+  // Antes o catálogo vinha sempre dividido em 3 seções (Básico/Médio/
+  // Avançado), forçando quem procurava um serviço a primeiro adivinhar em
+  // qual módulo ele estava. Agora é uma lista única, ordenada por nome —
+  // o módulo vira só uma etiqueta discreta no card, não mais uma divisão
+  // de tela (Épico C, PRD 16/08/2026).
   renderCatalog() {
     const container = document.getElementById('avulso-catalog-list');
     if (!container) return;
 
-    const catalog = DataStore.getAvulsoCatalog();
-    const grupos = ['BASICO', 'MEDIO', 'AVANCADO'];
+    const catalog = [...DataStore.getAvulsoCatalog()].sort((a, b) => a.nome.localeCompare(b.nome));
 
-    container.innerHTML = grupos.map(modulo => {
-      const itens = catalog.filter(c => c.modulo === modulo);
-      if (itens.length === 0) return '';
-      return `
-        <div style="margin-bottom:20px;">
-          <div class="figma-panel-title">${this.MODULO_LABELS[modulo]}</div>
-          <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); margin-top:8px;">
-            ${itens.map(item => `
-              <div class="kpi-card">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
-                  <div style="font-weight:700; font-size:0.88rem;">${item.nome}</div>
-                  <span class="chip chip-muted" style="flex-shrink:0;">${item.aplicavelA}</span>
-                </div>
-                <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">${item.descricao}</div>
-                <div style="font-size:0.8rem; font-weight:600; color:#10B981; font-family:var(--font-mono);">
-                  ${this.formatHonorario(item)}
-                </div>
-                <div style="font-size:0.72rem; color:var(--text-dim); margin-bottom:10px;">Execução interna: ${item.prazoExecucaoInterna || '-'}</div>
-                <button class="btn-figma-secondary" style="width:100%; font-size:0.78rem;" onclick="AvulsoServices.openNewRequestModal('${item.id}')">Nova Solicitação</button>
+    container.innerHTML = `
+      <div class="kpi-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+        ${catalog.map(item => `
+          <div class="kpi-card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:6px;">
+              <div style="font-weight:700; font-size:0.88rem;">${item.nome}</div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0;">
+                <span class="chip chip-muted">${item.aplicavelA}</span>
+                <span class="chip chip-info" style="font-size:0.68rem;">${this.MODULO_LABELS[item.modulo] || item.modulo}</span>
               </div>
-            `).join('')}
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">${item.descricao}</div>
+            <div style="font-size:0.8rem; font-weight:600; color:#10B981; font-family:var(--font-mono);">
+              ${this.formatHonorario(item)}
+            </div>
+            <div style="font-size:0.72rem; color:var(--text-dim); margin-bottom:10px;">Execução interna: ${item.prazoExecucaoInterna || '-'}</div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-figma-secondary" style="flex:1; font-size:0.78rem;" onclick="AvulsoServices.openNewRequestModal('${item.id}')">Nova Solicitação</button>
+              ${(item.etapasExecucao || []).length > 0 ? `<button class="btn-figma-secondary" style="font-size:0.78rem;" onclick="AvulsoServices.toggleRoteiro('${item.id}')">Roteiro</button>` : ''}
+            </div>
+            <div id="avulso-roteiro-${item.id}" style="display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border-color);"></div>
           </div>
-        </div>
-      `;
-    }).join('');
+        `).join('')}
+      </div>
+    `;
+  },
+
+  // Abre/fecha o roteiro de execução do serviço direto no card do catálogo
+  // — o passo a passo interno que antes só existia no documento original,
+  // agora vindo do banco (avulso_service_catalog.etapas_execucao).
+  toggleRoteiro(catalogId) {
+    const panel = document.getElementById(`avulso-roteiro-${catalogId}`);
+    if (!panel) return;
+    if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+    const item = DataStore.getAvulsoCatalog().find(c => c.id === catalogId);
+    panel.innerHTML = this.renderRoteiroHtml(item);
+    panel.style.display = 'block';
+  },
+
+  // HTML do roteiro de execução — reaproveitado no card do catálogo, na
+  // Nova Solicitação (ao escolher o serviço) e no Detalhe da solicitação.
+  renderRoteiroHtml(item) {
+    const etapas = item?.etapasExecucao || [];
+    if (etapas.length === 0) return '<div style="font-size:0.78rem; color:var(--text-dim);">Roteiro de execução ainda não cadastrado para este serviço.</div>';
+    return `
+      <div style="font-size:0.72rem; font-weight:700; color:var(--text-dim); margin-bottom:6px;">PASSO A PASSO DE EXECUÇÃO INTERNA</div>
+      <ol style="padding-left:18px; margin:0; display:flex; flex-direction:column; gap:6px;">
+        ${etapas.map(e => `<li style="font-size:0.8rem; color:var(--text-main);">${e.descricao}</li>`).join('')}
+      </ol>
+    `;
   },
 
   formatHonorario(item) {
@@ -84,9 +117,17 @@ const AvulsoServices = {
     const tbody = document.getElementById('avulso-pipeline-tbody');
     if (!tbody) return;
 
-    const requests = DataStore.getAvulsoRequests();
     const catalogById = {};
     DataStore.getAvulsoCatalog().forEach(c => { catalogById[c.id] = c; });
+
+    // Em andamento sobe pro topo — concluído/cancelado desce pro fim.
+    // Desempate por mais recente dentro do mesmo grupo de prioridade.
+    const requests = [...DataStore.getAvulsoRequests()].sort((a, b) => {
+      const pa = this.STATUS_SORT_PRIORITY[a.status] ?? 9;
+      const pb = this.STATUS_SORT_PRIORITY[b.status] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
     if (requests.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Nenhuma solicitação de serviço avulso ainda.</td></tr>`;
@@ -159,9 +200,17 @@ const AvulsoServices = {
   onServiceSelected() {
     const id = document.getElementById('avulso-req-service').value;
     const info = document.getElementById('avulso-req-service-info');
+    const roteiro = document.getElementById('avulso-req-service-roteiro');
     const item = DataStore.getAvulsoCatalog().find(c => c.id === id);
-    if (!item) { info.textContent = ''; return; }
+    if (!item) {
+      info.textContent = '';
+      if (roteiro) roteiro.innerHTML = '';
+      return;
+    }
     info.textContent = `${this.formatHonorario(item)} · Execução interna: ${item.prazoExecucaoInterna || '-'} · Conclusão total: ${item.prazoConclusaoTotal || '-'}`;
+    // Mostra de cara como esse serviço deve ser executado — antes só dava
+    // pra ver isso reabrindo o documento original do roteiro.
+    if (roteiro) roteiro.innerHTML = this.renderRoteiroHtml(item);
   },
 
   // Selecionar um cliente já cadastrado preenche CNPJ/CPF e Nome sozinho
@@ -302,6 +351,11 @@ const AvulsoServices = {
     document.getElementById('avulso-detail-status').value = request.status;
     document.getElementById('avulso-detail-honorario').value = request.honorarioAcordado || '';
     document.getElementById('avulso-detail-notes').value = request.observacoes || '';
+
+    // "O que fazer" (roteiro do catálogo) ao lado de "o que já foi obtido"
+    // (checklist da solicitação) — antes só existia o checklist.
+    const roteiroContainer = document.getElementById('avulso-detail-roteiro');
+    if (roteiroContainer) roteiroContainer.innerHTML = this.renderRoteiroHtml(service);
 
     const checklistContainer = document.getElementById('avulso-detail-checklist');
     checklistContainer.innerHTML = (request.checklist || []).length === 0

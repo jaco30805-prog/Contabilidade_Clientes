@@ -503,7 +503,10 @@ const DataStore = {
       prazoExecucaoInterna: row.prazo_execucao_interna || '',
       prazoConclusaoTotal: row.prazo_conclusao_total || '',
       documentosNecessarios: row.documentos_necessarios || [],
-      portaisAcessados: row.portais_acessados || []
+      portaisAcessados: row.portais_acessados || [],
+      // Passo a passo de execução interna, extraído dos Roteiros
+      // Operacionais (Épico C, PRD 16/08/2026) — array de {ordem, descricao}.
+      etapasExecucao: row.etapas_execucao || []
     };
   },
 

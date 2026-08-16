@@ -399,6 +399,7 @@
               <option value="">— Selecione o serviço —</option>
             </select>
             <div id="avulso-req-service-info" style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;"></div>
+            <div id="avulso-req-service-roteiro" style="margin-top:8px;"></div>
           </div>
 
           <div class="field-group" style="margin-bottom:12px;">
@@ -461,7 +462,12 @@
           </div>
 
           <div class="field-group" style="margin:12px 0;">
-            <label>Checklist de Documentos e Informações</label>
+            <label>Roteiro de Execução — O que fazer</label>
+            <div id="avulso-detail-roteiro"></div>
+          </div>
+
+          <div class="field-group" style="margin:12px 0;">
+            <label>Checklist de Documentos e Informações — O que já foi obtido</label>
             <div id="avulso-detail-checklist"></div>
           </div>
 
