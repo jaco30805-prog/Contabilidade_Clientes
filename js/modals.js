@@ -401,6 +401,14 @@
             <div id="avulso-req-service-info" style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;"></div>
           </div>
 
+          <div class="field-group" style="margin-bottom:12px;">
+            <label>Já é cliente da carteira?</label>
+            <select id="avulso-req-client" class="form-control" onchange="AvulsoServices.onClientSelected()">
+              <option value="">— Não é cliente / preencher manualmente —</option>
+            </select>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">Selecionando um cliente aqui, o CNPJ/CPF e o nome abaixo são preenchidos sozinhos.</div>
+          </div>
+
           <div class="grid-row">
             <div class="span-6 field-group">
               <label>CNPJ ou CPF do Solicitante <span style="font-weight:400; color:var(--text-muted);">(CNPJ busca dados na Receita)</span></label>
@@ -411,13 +419,7 @@
               <input type="text" id="avulso-req-nome" class="form-control" required>
             </div>
           </div>
-
-          <div class="field-group" style="margin-bottom:12px;">
-            <label>Já é cliente da carteira? (opcional)</label>
-            <select id="avulso-req-client" class="form-control">
-              <option value="">— Não vincular a nenhum cliente —</option>
-            </select>
-          </div>
+          <div id="avulso-req-client-hint" style="font-size:0.78rem; color:var(--primary-blue); margin-top:-6px; margin-bottom:12px;"></div>
 
           <div id="avulso-req-receita-status" style="font-size:0.78rem; color:var(--text-muted);"></div>
         </div>

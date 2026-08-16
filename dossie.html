@@ -71,6 +71,7 @@
           <button type="button" onclick="App.jumpToSection('tab-access')">Certificado & Acessos</button>
           <button type="button" onclick="App.jumpToSection('tab-cnd')">Matriz CND</button>
           <button type="button" onclick="App.jumpToSection('tab-financial')">Honorários</button>
+          <button type="button" onclick="App.jumpToSection('tab-avulsos')">Serviços Avulsos</button>
           <button type="button" onclick="App.jumpToSection('tab-interactions')">Atendimentos</button>
           <button type="button" onclick="App.jumpToSection('tab-time')">Tempo Trabalhado</button>
         </div>
@@ -313,6 +314,32 @@
           </div>
         </div>
 
+        <!-- Serviços Avulsos -->
+        <div id="tab-avulsos" class="form-section">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div class="figma-panel-title" style="margin-bottom:0;">Solicitações de Serviços Avulsos</div>
+            <button class="btn-figma-primary" onclick="AvulsoServices.openNewRequestModal(null, App.selectedClientId)">+ Nova Solicitação</button>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-8px; margin-bottom:16px;">
+            Serviços não recorrentes (abertura, alteração, baixa, regularização, consultoria) solicitados por este cliente. O catálogo completo e o pipeline geral ficam em Serviços Avulsos, no menu lateral.
+          </p>
+          <div class="table-container">
+            <table class="figma-table">
+              <thead>
+                <tr>
+                  <th>Serviço</th>
+                  <th>Checklist</th>
+                  <th>Situação</th>
+                  <th style="text-align:right;">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="det-avulsos-tbody">
+                <tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Atendimentos -->
         <div id="tab-interactions" class="form-section">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -360,6 +387,7 @@
   <script src="js/validators.js"></script>
   <script src="js/data.js"></script>
   <script src="js/obligations.js"></script>
+  <script src="js/avulsoServices.js"></script>
   <script src="js/modals.js"></script>
   <script src="js/timeTracking.js"></script>
   <script src="js/app.js"></script>

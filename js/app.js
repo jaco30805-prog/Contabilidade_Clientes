@@ -376,6 +376,7 @@ const App = {
     this.renderDetailAccessTab(client);
     this.renderDetailCndTab(client);
     this.renderDetailFinancialTab(client);
+    this.renderDetailAvulsosTab(client);
     this.renderDetailInteractionsTab(client);
     this.renderDetailTimeTab(client);
 
@@ -595,6 +596,43 @@ const App = {
     document.getElementById('det-fin-method').textContent = fin.paymentMethod || 'BOLETO';
     document.getElementById('det-fin-13th').textContent = fin.has13thFee ? 'Sim (Cobrança anual)' : 'Não possui';
     document.getElementById('det-fin-notes').textContent = fin.feeNotes || 'Nenhuma cláusula especial cadastrada.';
+  },
+
+  // Solicitações de Serviços Avulsos vinculadas a este cliente — é aqui que
+  // uma solicitação criada pelo Dossiê (ou vinculada ao cliente na tela de
+  // Serviços Avulsos) aparece de volta, resolvendo a sensação de que ela
+  // "sumia" ao ficar só no pipeline geral daquela outra página.
+  renderDetailAvulsosTab(client) {
+    const tbody = document.getElementById('det-avulsos-tbody');
+    if (!tbody) return;
+
+    if (!window.AvulsoServices || !window.DataStore) return;
+
+    const requests = DataStore.getAvulsoRequests().filter(r => r.clientId === client.id);
+    const catalogById = {};
+    DataStore.getAvulsoCatalog().forEach(c => { catalogById[c.id] = c; });
+
+    if (requests.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma solicitação de serviço avulso para este cliente ainda.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = requests.map(r => {
+      const servico = catalogById[r.catalogServiceId];
+      const statusInfo = AvulsoServices.STATUS_LABELS[r.status] || { label: r.status, chip: 'chip-muted' };
+      const checklistDone = (r.checklist || []).filter(c => c.obtido).length;
+      const checklistTotal = (r.checklist || []).length;
+      return `
+        <tr>
+          <td style="font-weight:600;">${servico ? servico.nome : '-'}</td>
+          <td>${checklistTotal > 0 ? `${checklistDone}/${checklistTotal} itens` : '-'}</td>
+          <td><span class="chip ${statusInfo.chip}">${statusInfo.label}</span></td>
+          <td style="text-align:right;">
+            <button class="btn-figma-secondary" style="font-size:0.75rem; padding:4px 10px;" onclick="AvulsoServices.openDetailModal('${r.id}')">Ver / Atualizar</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   },
 
   renderDetailInteractionsTab(client) {

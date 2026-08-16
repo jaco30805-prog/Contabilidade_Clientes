@@ -786,6 +786,12 @@ table.figma-table tbody tr:hover {
   border-color: var(--primary-blue);
 }
 
+.form-control[readonly] {
+  background-color: var(--bg-card-subtle);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;

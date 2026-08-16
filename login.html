@@ -10,6 +10,11 @@
   <link rel="stylesheet" href="css/styles.css">
   <style>
     .login-shell {
+      /* O body global é display:flex (layout com sidebar das outras
+         páginas) — sem width:100%, este item de flex encolhe para o
+         conteúdo e fica "colado" no canto esquerdo em vez de centralizar
+         na tela. */
+      width: 100%;
       min-height: 100vh;
       display: flex;
       align-items: center;

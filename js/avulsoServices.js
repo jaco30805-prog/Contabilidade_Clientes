@@ -116,7 +116,7 @@ const AvulsoServices = {
   // =========================================================================
   // NOVA SOLICITAÇÃO
   // =========================================================================
-  openNewRequestModal(preselectServiceId) {
+  openNewRequestModal(preselectServiceId, preselectClientId) {
     const modal = document.getElementById('modal-avulso-request');
     const form = document.getElementById('avulso-request-form');
     if (!modal || !form) return;
@@ -124,7 +124,9 @@ const AvulsoServices = {
     form.reset();
     document.getElementById('avulso-req-service-info').textContent = '';
     document.getElementById('avulso-req-receita-status').textContent = '';
+    document.getElementById('avulso-req-client-hint').textContent = '';
     this._pendingReceitaSnapshot = null;
+    this._linkedClientAutofill = false;
 
     const serviceSelect = document.getElementById('avulso-req-service');
     const catalog = DataStore.getAvulsoCatalog();
@@ -142,10 +144,12 @@ const AvulsoServices = {
 
     const clientSelect = document.getElementById('avulso-req-client');
     const clients = [...DataStore.getClients()].sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
-    clientSelect.innerHTML = '<option value="">— Não vincular a nenhum cliente —</option>'
+    clientSelect.innerHTML = '<option value="">— Não é cliente / preencher manualmente —</option>'
       + clients.map(c => `<option value="${c.id}">${c.companyName || c.tradeName}</option>`).join('');
+    if (preselectClientId) clientSelect.value = preselectClientId;
 
     this.onServiceSelected();
+    this.onClientSelected();
     this._setupDocInput();
 
     modal.querySelector('.modal-content-scroll')?.scrollTo(0, 0);
@@ -158,6 +162,43 @@ const AvulsoServices = {
     const item = DataStore.getAvulsoCatalog().find(c => c.id === id);
     if (!item) { info.textContent = ''; return; }
     info.textContent = `${this.formatHonorario(item)} · Execução interna: ${item.prazoExecucaoInterna || '-'} · Conclusão total: ${item.prazoConclusaoTotal || '-'}`;
+  },
+
+  // Selecionar um cliente já cadastrado preenche CNPJ/CPF e Nome sozinho
+  // (e trava os dois campos) — assim não sobra a impressão de que são dois
+  // cadastros redundantes. Desmarcando o cliente, os campos voltam a ficar
+  // livres para preenchimento manual (caso do solicitante que não é cliente).
+  onClientSelected() {
+    const clientId = document.getElementById('avulso-req-client').value;
+    const docInput = document.getElementById('avulso-req-doc');
+    const nomeInput = document.getElementById('avulso-req-nome');
+    const hint = document.getElementById('avulso-req-client-hint');
+    const receitaStatus = document.getElementById('avulso-req-receita-status');
+
+    if (!clientId) {
+      if (this._linkedClientAutofill) {
+        docInput.value = '';
+        nomeInput.value = '';
+      }
+      this._linkedClientAutofill = false;
+      docInput.readOnly = false;
+      nomeInput.readOnly = false;
+      if (hint) hint.textContent = '';
+      return;
+    }
+
+    const client = DataStore.getClients().find(c => c.id === clientId);
+    if (!client) return;
+
+    const doc = Validators.onlyNumbers(client.cnpj || client.cpf || '');
+    docInput.value = doc ? (doc.length > 11 ? Validators.formatCNPJ(doc) : Validators.formatCPF(doc)) : '';
+    nomeInput.value = client.companyName || client.tradeName || '';
+    docInput.readOnly = true;
+    nomeInput.readOnly = true;
+    this._linkedClientAutofill = true;
+    this._pendingReceitaSnapshot = null;
+    if (receitaStatus) receitaStatus.textContent = '';
+    if (hint) hint.textContent = 'Preenchido automaticamente a partir do cadastro do cliente.';
   },
 
   // Mesmo comportamento do campo CNPJ/CPF do cadastro de cliente: formata os
@@ -219,10 +260,11 @@ const AvulsoServices = {
     const submitBtn = e.target.querySelector('button[type="submit"]');
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Criando...'; }
 
+    const clientId = document.getElementById('avulso-req-client').value || null;
     try {
       await DataStore.createAvulsoRequest({
         catalogServiceId: serviceId,
-        clientId: document.getElementById('avulso-req-client').value || null,
+        clientId,
         cnpj: isCnpj ? docClean : null,
         cpf: !isCnpj ? docClean : null,
         nomeSolicitante: document.getElementById('avulso-req-nome').value.trim(),
@@ -232,6 +274,7 @@ const AvulsoServices = {
       App.closeAllModals();
       App.showToast('Solicitação criada com sucesso!', 'success');
       this.render();
+      this._syncDossieIfNeeded(clientId);
     } catch (err) {
       console.error('Erro ao criar solicitação avulsa:', err);
       App.showToast('Erro ao criar solicitação. Tente novamente.', 'danger');
@@ -301,11 +344,23 @@ const AvulsoServices = {
       App.closeAllModals();
       App.showToast('Solicitação atualizada!', 'success');
       this.render();
+      this._syncDossieIfNeeded(request.clientId);
     } catch (err) {
       console.error('Erro ao atualizar solicitação avulsa:', err);
       App.showToast('Erro ao atualizar solicitação. Tente novamente.', 'danger');
     } finally {
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar Solicitação'; }
+    }
+  },
+
+  // this.render() só atualiza os elementos da própria página de Serviços
+  // Avulsos (ids que só existem lá). Quando a solicitação está vinculada a
+  // um cliente e o Dossiê desse cliente está aberto na mesma página, atualiza
+  // a aba "Serviços Avulsos" do Dossiê também — mesmo padrão usado em
+  // App.saveClientForm / App.saveInteractionForm.
+  _syncDossieIfNeeded(clientId) {
+    if (clientId && window.App?.currentPage === 'dossie' && App.selectedClientId === clientId) {
+      App.renderDetailAvulsosTab?.(DataStore.getClientById(clientId));
     }
   }
 };
