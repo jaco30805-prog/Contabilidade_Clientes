@@ -305,6 +305,53 @@ const Validators = {
     };
   },
 
+  // Consulta completa — todos os campos relevantes que a BrasilAPI devolve,
+  // não só o subconjunto usado pro autofill de cadastro (fetchCNPJData).
+  // Não persiste nada: é pra exibição ao vivo no Dossiê ("Ver dados
+  // completos da Receita Federal") — decisão do Jacó foi não criar coluna
+  // nova só pra isso (PRD_Proximas_Etapas, Épico A, 16/08/2026).
+  async fetchCNPJDataFull(cnpj) {
+    const data = await this._fetchReceitaCNPJ(cnpj);
+    return {
+      companyName: data.razao_social || '',
+      tradeName: data.nome_fantasia || '',
+      matrizFilial: data.descricao_identificador_matriz_filial || '',
+      situacaoCadastral: data.descricao_situacao_cadastral || '',
+      dataSituacaoCadastral: data.data_situacao_cadastral || '',
+      situacaoEspecial: data.situacao_especial || '',
+      dataSituacaoEspecial: data.data_situacao_especial || '',
+      naturezaJuridica: data.natureza_juridica || '',
+      capitalSocial: typeof data.capital_social === 'number' ? data.capital_social : null,
+      porteDescricao: data.porte || '',
+      dataInicioAtividade: data.data_inicio_atividade || '',
+      cnaePrincipal: { code: data.cnae_fiscal ? String(data.cnae_fiscal) : '', desc: data.cnae_fiscal_descricao || '' },
+      cnaesSecundarios: (data.cnaes_secundarios || []).map(c => ({ code: String(c.codigo || ''), desc: c.descricao || '' })),
+      telefones: [data.ddd_telefone_1, data.ddd_telefone_2].filter(Boolean),
+      fax: data.ddd_fax || '',
+      email: data.email || '',
+      endereco: {
+        cep: data.cep || '',
+        street: [data.descricao_tipo_de_logradouro, data.logradouro].filter(Boolean).join(' ').trim(),
+        number: data.numero || '',
+        complement: data.complemento || '',
+        neighborhood: data.bairro || '',
+        city: data.municipio || '',
+        state: data.uf || ''
+      },
+      // Histórico de regime (ECF) por ano — a mesma pista usada pra "chutar"
+      // Lucro Real x Presumido no autofill, aqui exposta crua e completa.
+      regimeTributarioHistorico: (data.regime_tributario || [])
+        .map(r => ({ ano: r.ano, forma: r.forma_de_tributacao, escrituracoes: r.quantidade_de_escrituracoes }))
+        .sort((a, b) => (b.ano || 0) - (a.ano || 0)),
+      qsa: (data.qsa || []).map(s => ({
+        name: s.nome_socio || '',
+        cpf: s.cnpj_cpf_do_socio || '',
+        qualificacao: s.qualificacao_socio || '',
+        dataEntrada: s.data_entrada_sociedade || ''
+      }))
+    };
+  },
+
   // Verifica se o CNPJ continua optante pelo Simples Nacional / MEI.
   // Usa a mesma base pública da Receita (Cadastro Nacional de Pessoa
   // Jurídica) do autofill — NÃO é a consulta "ao vivo" do portal oficial

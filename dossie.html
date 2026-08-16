@@ -35,7 +35,7 @@
       </header>
 
       <div class="page-container">
-        <div class="figma-panel" style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+        <div id="dossie-header-panel" class="figma-panel" style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
           <div style="display:flex; align-items:center; gap:16px;">
             <div style="width:52px; height:52px; border-radius:var(--radius-md); background:#0F172A; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.4rem;" id="detail-avatar-initial">R</div>
             <div>
@@ -75,6 +75,14 @@
           <button type="button" onclick="App.jumpToSection('tab-interactions')">Atendimentos</button>
           <button type="button" onclick="App.jumpToSection('tab-time')">Tempo Trabalhado</button>
         </div>
+
+        <!-- Documento de impressão — só existe pra impressão/PDF (ver
+             App.renderPrintDossie em app.js). Escondido em tela; some tudo o
+             mais quando imprime (ver @media print em styles.css). Não é o
+             mesmo layout de dashboard da tela: linhas rótulo→valor, sem
+             card/grid, sem Tempo Trabalhado nem Atendimentos — só cadastro
+             do cliente + dado que vem da Receita Federal. -->
+        <div id="print-dossie" class="print-only"></div>
 
         <!-- Dados Gerais -->
         <div id="tab-general" class="form-section">
@@ -117,7 +125,10 @@
           <div class="figma-panel" style="margin-top:20px;">
             <div class="figma-panel-title" style="display:flex; justify-content:space-between; align-items:center;">
               <span>Dados da Receita Federal</span>
-              <button class="btn-figma-secondary" style="font-size:0.75rem; padding:4px 10px;" onclick="App.refreshReceitaSnapshot()" id="btn-refresh-receita">Atualizar agora</button>
+              <div style="display:flex; gap:8px;">
+                <button class="btn-figma-secondary" style="font-size:0.75rem; padding:4px 10px;" onclick="App.showFullReceitaData()" id="btn-full-receita">Ver dados completos</button>
+                <button class="btn-figma-secondary" style="font-size:0.75rem; padding:4px 10px;" onclick="App.refreshReceitaSnapshot()" id="btn-refresh-receita">Atualizar agora</button>
+              </div>
             </div>
             <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-top:4px;">
               <div style="font-size:0.85rem;">
@@ -152,6 +163,12 @@
               </div>
             </div>
             <div style="font-size:0.72rem; color:var(--text-muted); margin-top:14px;">Fonte: cadastro público da Receita Federal (BrasilAPI). Pode ter defasagem em relação aos portais oficiais — não substitui certidão oficial em caso de dúvida.</div>
+
+            <!-- Painel expandido — consulta ao vivo, não persistida (Épico A
+                 do PRD de 16/08/2026): a BrasilAPI devolve muito mais campo
+                 do que os 4 acima, mas o Jacó decidiu que não precisa virar
+                 coluna nova no banco pra isso, só mostrar na hora. -->
+            <div id="det-receita-full" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border-color);"></div>
           </div>
         </div>
 
@@ -241,6 +258,21 @@
                 <div><span style="color:var(--text-muted);">Senha Posto Fiscal / SEFAZ:</span> <span id="det-key-post">Configurada</span></div>
                 <div><span style="color:var(--text-muted);">Observações Técnicas:</span> <span id="det-key-notes">e-CNPJ A1 instalado no servidor do cliente.</span></div>
               </div>
+            </div>
+          </div>
+
+          <!-- Atalhos pros portais oficiais — nenhum tem API gratuita
+               (levantamento no PRD de 16/08/2026), então isso só abre o
+               site certo com o CNPJ já copiado, poupando o "qual é mesmo
+               o portal desse órgão". -->
+          <div class="figma-panel" style="margin-top:20px;">
+            <div class="figma-panel-title">Atalhos para Portais Oficiais</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:-6px; margin-bottom:12px;">Abre o portal oficial numa aba nova, com o CNPJ/CPF do cliente já copiado pra colar lá. A consulta em si continua manual — nenhum desses órgãos tem API gratuita.</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn-figma-secondary" style="font-size:0.78rem;" onclick="App.openOfficialPortal('ecac')">e-CAC (Receita Federal) ↗</button>
+              <button class="btn-figma-secondary" style="font-size:0.78rem;" onclick="App.openOfficialPortal('jucesp')">JUCESP — Junta Comercial ↗</button>
+              <button class="btn-figma-secondary" style="font-size:0.78rem;" onclick="App.openOfficialPortal('viabilidade')">VRE/REDESIM — Viabilidade ↗</button>
+              <button class="btn-figma-secondary" style="font-size:0.78rem;" onclick="App.openOfficialPortal('empreendafacil')">Empreenda Fácil (Prefeitura SP) ↗</button>
             </div>
           </div>
         </div>

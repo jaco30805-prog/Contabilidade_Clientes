@@ -20,6 +20,45 @@ const App = {
   selectedClientId: null,
   selectedCompetence: ObligationsManager.getCurrentCompetence(),
 
+  // Atalhos pros portais oficiais (Épico D-A do PRD de 16/08/2026). Nenhum
+  // desses órgãos tem API pública gratuita (levantamento feito na mesma
+  // data) — isso aqui não consulta nada sozinho, só poupa o "qual é mesmo
+  // o site desse órgão" abrindo a página certa com o CNPJ já copiado pra
+  // colar. `municipal` não tem link fixo (cada prefeitura é um portal
+  // diferente) — vira busca já com a cidade do cliente preenchida.
+  OFFICIAL_PORTALS: {
+    federal: { label: 'Receita Federal/PGFN — Certidão de Regularidade Fiscal', url: 'https://www.gov.br/pt-br/servicos/emitir-certidao-de-regularidade-fiscal' },
+    estadual: { label: 'SEFAZ-SP — Certidões', url: 'https://portal.fazenda.sp.gov.br/servicos/certidoes' },
+    fgts: { label: 'Caixa — CRF FGTS (Regularidade do Empregador)', url: 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf' },
+    trabalhista: { label: 'TST — CNDT (Débitos Trabalhistas)', url: 'https://www.tst.jus.br/certidao' },
+    ecac: { label: 'e-CAC — Receita Federal', url: 'https://cav.receita.fazenda.gov.br/' },
+    jucesp: { label: 'JUCESP — Junta Comercial de SP', url: 'https://www.jucesponline.sp.gov.br/' },
+    viabilidade: { label: 'VRE/REDESIM — Consulta de Viabilidade (SP)', url: 'https://vreredesim.sp.gov.br/home' },
+    empreendafacil: { label: 'Empreenda Fácil — Prefeitura de São Paulo', url: 'https://empreendafacil.prefeitura.sp.gov.br/' }
+  },
+
+  // Abre o portal oficial certo pro cliente selecionado, copiando o
+  // CNPJ/CPF antes pra já colar lá — a consulta em si continua manual
+  // (nenhum desses órgãos tem API gratuita pra preencher sozinho).
+  openOfficialPortal(type) {
+    const client = DataStore.getClientById(this.selectedClientId);
+    const doc = client ? (client.cnpj || client.cpf) : '';
+
+    let url = this.OFFICIAL_PORTALS[type]?.url;
+    if (type === 'municipal') {
+      const city = client?.address?.city || '';
+      const state = client?.address?.state || '';
+      url = `https://www.google.com/search?q=${encodeURIComponent(`prefeitura de ${city} ${state} certidão negativa de débitos`)}`;
+    }
+    if (!url) return;
+
+    if (doc) {
+      navigator.clipboard?.writeText(doc).catch(() => {});
+      this.showToast(`CNPJ/CPF copiado — cole no portal que vai abrir.`, 'info');
+    }
+    window.open(url, '_blank', 'noopener');
+  },
+
   init() {
     this.currentPage = document.body.dataset.page || '';
     this.setupEventListeners();
@@ -379,6 +418,7 @@ const App = {
     this.renderDetailAvulsosTab(client);
     this.renderDetailInteractionsTab(client);
     this.renderDetailTimeTab(client);
+    this.renderPrintDossie(client);
 
     // Abre a contagem de tempo para este cliente — roda até a página ser
     // deixada (js/timeTracking.js cuida de fechar sozinho).
@@ -492,6 +532,113 @@ const App = {
     }
   },
 
+  // "Ver dados completos da Receita Federal" — reconsulta a BrasilAPI na
+  // hora e mostra tudo que ela devolve além do retrato persistido (situação
+  // especial, CNAEs secundários segundo a própria Receita, telefones/e-mail,
+  // QSA completo com qualificação, histórico de regime tributário). Nada
+  // aqui é salvo no banco — é só exibição, reconsultada a cada clique.
+  async showFullReceitaData() {
+    const client = DataStore.getClientById(this.selectedClientId);
+    if (!client) return;
+
+    const panel = document.getElementById('det-receita-full');
+    const btn = document.getElementById('btn-full-receita');
+    if (!panel || !btn) return;
+
+    // Clicar de novo só fecha — não precisa reconsultar toda vez.
+    if (panel.style.display !== 'none' && panel.dataset.loaded === 'true') {
+      panel.style.display = 'none';
+      btn.textContent = 'Ver dados completos';
+      return;
+    }
+
+    if (!client.cnpj) {
+      this.showToast('Esse cliente não tem CNPJ cadastrado — a consulta é só para pessoa jurídica.', 'info');
+      return;
+    }
+
+    panel.style.display = 'block';
+    panel.dataset.loaded = 'false';
+    panel.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted);">Consultando Receita Federal...</div>';
+    btn.disabled = true;
+
+    try {
+      const data = await Validators.fetchCNPJDataFull(client.cnpj);
+      panel.innerHTML = this._renderFullReceitaPanel(client, data);
+      panel.dataset.loaded = 'true';
+      btn.textContent = 'Ocultar dados completos';
+    } catch (err) {
+      panel.innerHTML = `<div style="font-size:0.85rem; color:#EF4444;">${err.message || 'Não foi possível consultar a Receita Federal agora.'}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
+  _renderFullReceitaPanel(client, data) {
+    const row = (label, value) => `
+      <div style="font-size:0.85rem;">
+        <div style="color:var(--text-muted);">${label}</div>
+        <div style="font-weight:600; margin-top:4px;">${value || '-'}</div>
+      </div>`;
+
+    const cadastradoCodes = new Set((client.secondaryCnaes || []).map(c => c.code));
+    const receitaCodes = new Set(data.cnaesSecundarios.map(c => c.code));
+    const cnaesDivergem = cadastradoCodes.size !== receitaCodes.size
+      || [...cadastradoCodes].some(c => !receitaCodes.has(c));
+
+    const cnaesHtml = data.cnaesSecundarios.length === 0
+      ? '<div style="font-size:0.8rem; color:var(--text-dim);">Nenhum CNAE secundário na Receita.</div>'
+      : `<ul style="list-style:none; padding:0; margin-top:6px;">${data.cnaesSecundarios.map(c => `
+          <li style="padding:4px 0; border-bottom:1px solid var(--border-color); font-size:0.82rem;">
+            <strong style="color:var(--primary-blue);">${c.code}</strong> — ${c.desc}
+          </li>`).join('')}</ul>`;
+
+    const qsaHtml = data.qsa.length === 0
+      ? '<div style="font-size:0.8rem; color:var(--text-dim);">Nenhum sócio retornado pela Receita.</div>'
+      : `<div class="table-container" style="margin-top:6px;"><table class="figma-table"><thead><tr><th>Sócio</th><th>CPF/CNPJ</th><th>Qualificação</th><th>Entrada</th></tr></thead><tbody>${data.qsa.map(s => `
+          <tr><td>${s.name}</td><td style="font-family:var(--font-mono);">${s.cpf || '-'}</td><td>${s.qualificacao || '-'}</td><td>${Validators.formatDate(s.dataEntrada) || '-'}</td></tr>`).join('')}</tbody></table></div>`;
+
+    const regimeHtml = data.regimeTributarioHistorico.length === 0
+      ? '<div style="font-size:0.8rem; color:var(--text-dim);">Sem histórico de escrituração (ECF) na Receita.</div>'
+      : `<ul style="list-style:none; padding:0; margin-top:6px;">${data.regimeTributarioHistorico.map(r => `
+          <li style="padding:4px 0; border-bottom:1px solid var(--border-color); font-size:0.82rem;">
+            <strong>${r.ano || '-'}</strong> — ${r.forma || 'Não informado'} (${r.escrituracoes ?? 0} escrituração(ões))
+          </li>`).join('')}</ul>`;
+
+    return `
+      <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+        ${row('Matriz/Filial', data.matrizFilial)}
+        ${row('Data da Situação Cadastral', Validators.formatDate(data.dataSituacaoCadastral))}
+        ${row('Situação Especial', data.situacaoEspecial ? `${data.situacaoEspecial} (${Validators.formatDate(data.dataSituacaoEspecial) || '-'})` : 'Nenhuma')}
+        ${row('Data de Início de Atividade', Validators.formatDate(data.dataInicioAtividade))}
+      </div>
+      <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); margin-top:14px;">
+        ${row('Telefone(s) — Receita', data.telefones.length ? data.telefones.join(' / ') : '-')}
+        ${row('E-mail — Receita', data.email)}
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text-dim); display:flex; align-items:center; gap:8px;">
+          CNAES SECUNDÁRIOS — SEGUNDO A RECEITA
+          ${cnaesDivergem ? '<span class="chip chip-warning">Diferente do cadastrado no sistema</span>' : '<span class="chip chip-success">Igual ao cadastrado</span>'}
+        </div>
+        ${cnaesHtml}
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text-dim);">QSA COMPLETO — SEGUNDO A RECEITA</div>
+        ${qsaHtml}
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text-dim);">HISTÓRICO DE REGIME TRIBUTÁRIO (ECF)</div>
+        ${regimeHtml}
+      </div>
+
+      <div style="font-size:0.72rem; color:var(--text-muted); margin-top:14px;">Consulta ao vivo — não fica salva no cliente. Reconsultada toda vez que este painel é aberto.</div>
+    `;
+  },
+
   renderDetailFiscalTab(client) {
     document.getElementById('det-fisc-regime').textContent = DataStore.TaxRegimes[client.taxRegime]?.name || client.taxRegime;
     document.getElementById('det-fisc-ie').textContent = client.stateRegistration || 'Isento';
@@ -584,6 +731,7 @@ const App = {
           <div style="font-size:0.75rem; color:var(--text-dim); margin-top:4px;">
             ${info.notes || 'Regular'}
           </div>
+          <button class="btn-figma-secondary" style="width:100%; font-size:0.72rem; padding:4px 8px; margin-top:10px;" onclick="App.openOfficialPortal('${item.key}')">Abrir portal oficial ↗</button>
         </div>
       `;
     }).join('');
@@ -709,6 +857,136 @@ const App = {
         }).join('');
       }
     }
+  },
+
+  // Documento de impressão do Dossiê (Épico B, PRD 16/08/2026) — antes
+  // "Imprimir Dossiê A4" imprimia literalmente o dashboard da tela (cards,
+  // grid), com cara de print de tela. Isso monta um documento à parte, em
+  // formato de ficha (linhas rótulo→valor), só com dado de cadastro do
+  // cliente + dado que vem das APIs (Receita Federal) — de propósito, sem
+  // Tempo Trabalhado nem Atendimentos. Fica escondido em tela (.print-only),
+  // só aparece em @media print (ver css/styles.css).
+  renderPrintDossie(client) {
+    const container = document.getElementById('print-dossie');
+    if (!container) return;
+
+    const row = (label, value) => `<div class="print-row"><div class="print-label">${label}</div><div class="print-value">${value || '-'}</div></div>`;
+    const grid = (rows) => `<div class="print-row-grid">${rows.join('')}</div>`;
+    const section = (title, innerHtml) => `<div class="print-section"><div class="print-section-title">${title}</div>${innerHtml}</div>`;
+
+    const addr = client.address || {};
+    const cert = client.digitalCertificate || {};
+    const keys = client.accessKeys || {};
+    const fin = client.financial || {};
+    const receita = client.receita || {};
+    const simples = client.simplesCheck || {};
+    const doc = client.cnpj ? Validators.formatCNPJ(client.cnpj) : (client.cpf ? Validators.formatCPF(client.cpf) : '');
+
+    const identificacao = grid([
+      row('Razão Social', client.companyName),
+      row('Nome Fantasia', client.tradeName),
+      row('CNPJ / CPF', doc),
+      row('Data de Abertura', Validators.formatDate(client.foundingDate)),
+      row('Regime Tributário', DataStore.TaxRegimes[client.taxRegime]?.name || client.taxRegime),
+      row('Recorrência', client.recurrence === 'ESPORADICO' ? 'Esporádico' : 'Recorrente — carteira monitorada')
+    ]);
+
+    const contato = grid([
+      row('Contato Principal', client.contactName),
+      row('Cargo / Função', client.contactRole),
+      row('Telefone', (client.phones || []).join(' / ')),
+      row('WhatsApp', client.whatsapp),
+      row('E-mail', client.email),
+      row('E-mail Financeiro', client.financialEmail)
+    ]);
+
+    const endereco = grid([
+      row('Logradouro', addr.street ? `${addr.street}${addr.number ? ', ' + addr.number : ''}` : ''),
+      row('Complemento', addr.complement),
+      row('Bairro', addr.neighborhood),
+      row('Cidade / UF', addr.city ? `${addr.city} / ${addr.state}` : ''),
+      row('CEP', addr.cep ? Validators.formatCEP(addr.cep) : '')
+    ]);
+
+    const fiscalRows = grid([
+      row('Inscrição Estadual', client.stateRegistration || 'Isento'),
+      row('Inscrição Municipal', client.municipalRegistration),
+      row('CNAE Principal', client.mainCnae?.code ? `${client.mainCnae.code} — ${client.mainCnae.description}` : '')
+    ]);
+    const cnaesSecList = (client.secondaryCnaes || []).length
+      ? `<table class="print-doc-table"><thead><tr><th>Código</th><th>Descrição</th></tr></thead><tbody>${client.secondaryCnaes.map(c => `<tr><td>${c.code}</td><td>${c.description}</td></tr>`).join('')}</tbody></table>`
+      : '<div style="font-size:9pt; color:#666; margin-top:4px;">Nenhum CNAE secundário cadastrado.</div>';
+
+    const sociosTable = (client.partners || []).length
+      ? `<table class="print-doc-table"><thead><tr><th>Nome</th><th>CPF</th><th>Participação</th><th>Condição</th></tr></thead><tbody>${client.partners.map(p => `<tr><td>${p.name}</td><td>${p.cpf || '-'}</td><td>${p.sharePercentage || 0}%</td><td>${p.isAdmin ? 'Administrador' : 'Sócio Cotista'}</td></tr>`).join('')}</tbody></table>`
+      : '<div style="font-size:9pt; color:#666;">Nenhum sócio cadastrado.</div>';
+
+    const certAcessos = grid([
+      row('Tipo de Certificado', cert.type),
+      row('Autoridade Emissora', cert.issuer),
+      row('Vencimento do Certificado', Validators.formatDate(cert.expirationDate)),
+      row('Login Gov.br', keys.govBrUser),
+      row('Código de Acesso Simples Nacional', keys.simplesCode)
+    ]);
+
+    const cndTypes = [
+      { key: 'federal', label: 'CND Federal/PGFN' },
+      { key: 'estadual', label: 'CND Estadual (SEFAZ)' },
+      { key: 'municipal', label: 'CND Municipal' },
+      { key: 'fgts', label: 'CRF FGTS (Caixa)' },
+      { key: 'trabalhista', label: 'CNDT Trabalhista (TST)' }
+    ];
+    const cndsTable = `<table class="print-doc-table"><thead><tr><th>Certidão</th><th>Validade</th><th>Situação</th></tr></thead><tbody>${cndTypes.map(t => {
+      const info = (client.cnds || {})[t.key] || {};
+      const situacao = info.validUntil ? Validators.getExpirationStatus(info.validUntil, 15).label : 'Não informado';
+      return `<tr><td>${t.label}</td><td>${Validators.formatDate(info.validUntil) || '-'}</td><td>${situacao}</td></tr>`;
+    }).join('')}</tbody></table>`;
+
+    const honorarios = grid([
+      row('Mensalidade Atual', Validators.formatCurrency(fin.monthlyFee || 0)),
+      row('Dia de Vencimento', fin.dueDay ? `Todo dia ${fin.dueDay}` : ''),
+      row('Forma de Cobrança', fin.paymentMethod),
+      row('13º Honorário', fin.has13thFee ? 'Sim (cobrança anual)' : 'Não')
+    ]);
+
+    const receitaRows = grid([
+      row('Situação Cadastral (Receita)', receita.situacaoCadastral),
+      row('Natureza Jurídica', receita.naturezaJuridica),
+      row('Capital Social', typeof receita.capitalSocial === 'number' ? Validators.formatCurrency(receita.capitalSocial) : ''),
+      row('Porte (Receita)', receita.porteDescricao),
+      row('Regime — Simples/MEI', simples.situacao === 'CONFIRMADO' ? 'Confirmado' : (simples.situacao === 'DIVERGENTE' ? 'Divergente' : 'Não verificado')),
+      row('Última Sincronização', receita.lastSyncedAt ? new Date(receita.lastSyncedAt).toLocaleString('pt-BR') : 'Nunca sincronizado')
+    ]);
+
+    container.innerHTML = `
+      <div class="print-doc">
+        <div class="print-doc-header">
+          <div>
+            <h1>${client.companyName || client.tradeName || 'Cliente sem nome'}</h1>
+            <div class="print-doc-sub">${client.tradeName ? `(${client.tradeName}) · ` : ''}${doc || 'Documento não informado'}</div>
+          </div>
+          <div class="print-doc-meta">
+            Ficha Cadastral — Voal Consult<br>
+            Emitido em ${new Date().toLocaleDateString('pt-BR')}
+          </div>
+        </div>
+
+        ${section('Identificação', identificacao)}
+        ${section('Contato', contato)}
+        ${section('Endereço', endereco)}
+        ${section('Fiscal &amp; CNAEs', fiscalRows + cnaesSecList)}
+        ${section('Sócios (QSA)', sociosTable)}
+        ${section('Certificado Digital &amp; Acessos', certAcessos)}
+        ${section('Matriz de CNDs', cndsTable)}
+        ${section('Honorários', honorarios)}
+        ${section('Dados da Receita Federal', receitaRows)}
+
+        <div class="print-doc-footer">
+          <div>Voal Consult — Serviços Contábeis</div>
+          <div>Documento gerado pelo sistema — não substitui certidão oficial em caso de dúvida</div>
+        </div>
+      </div>
+    `;
   },
 
   // =========================================================================

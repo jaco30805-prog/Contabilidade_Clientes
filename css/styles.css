@@ -1005,3 +1005,107 @@ table.figma-table tbody tr:hover {
     break-inside: avoid;
   }
 }
+
+/* ==========================================================================
+   DOCUMENTO DE IMPRESSÃO DO DOSSIÊ (Épico B, PRD 16/08/2026)
+   Antes o "Imprimir Dossiê A4" só imprimia o dashboard da tela (cards/grid),
+   com cara de print de tela. Isso aqui é um documento à parte, só pra
+   impressão: linhas rótulo→valor, formato de ficha/formulário. Fica
+   escondido em tela (.print-only) e é a ÚNICA coisa visível quando imprime
+   — o resto do Dossiê (dashboard, Tempo Trabalhado, Atendimentos) some via
+   #dossie-header-panel/.section-jump-nav/.form-section no bloco abaixo.
+   ========================================================================== */
+.print-only { display: none; }
+
+@media print {
+  #dossie-header-panel, .section-jump-nav, .form-section, #dossie-timer-badge {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-doc {
+    font-family: var(--font-sans);
+    color: #000;
+    font-size: 11pt;
+  }
+  .print-doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+    margin-bottom: 18px;
+  }
+  .print-doc-header h1 {
+    font-size: 15pt;
+    font-weight: 700;
+    margin: 0 0 2px 0;
+  }
+  .print-doc-header .print-doc-sub {
+    font-size: 9pt;
+    color: #333;
+  }
+  .print-doc-meta {
+    font-size: 8.5pt;
+    color: #333;
+    text-align: right;
+  }
+  .print-section {
+    break-inside: avoid;
+    margin-bottom: 16px;
+  }
+  .print-section-title {
+    font-size: 10pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+    margin-bottom: 8px;
+  }
+  .print-row-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 24px;
+  }
+  .print-row {
+    display: flex;
+    padding: 3px 0;
+    border-bottom: 1px dotted #999;
+    font-size: 9.5pt;
+  }
+  .print-row .print-label {
+    width: 42%;
+    flex-shrink: 0;
+    color: #444;
+  }
+  .print-row .print-value {
+    font-weight: 600;
+  }
+  .print-doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+    margin-top: 4px;
+  }
+  .print-doc-table th, .print-doc-table td {
+    border: 1px solid #999;
+    padding: 4px 6px;
+    text-align: left;
+  }
+  .print-doc-table th {
+    background: #EEEEEE !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-doc-footer {
+    margin-top: 20px;
+    padding-top: 8px;
+    border-top: 1px solid #999;
+    font-size: 8pt;
+    color: #555;
+    display: flex;
+    justify-content: space-between;
+  }
+}
